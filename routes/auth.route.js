@@ -43,16 +43,17 @@ router.post('/login', (req, res) => {
         { expiresIn: '1h' }
       );
 
+      // Thêm perID vào response
       res.json({
         success: true,
         token,
         role: user.role,
         full_name: user.full_name,
+        perID: user.perID, // Thêm perID vào đây
       });
     });
   });
 });
-
 // Đăng ký
 router.post('/register', (req, res) => {
   const { full_name, phone_number, password } = req.body;
