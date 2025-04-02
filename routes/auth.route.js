@@ -1,11 +1,12 @@
+require('dotenv').config();
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const db = require('../common/db');
 
-const SECRET_KEY = 'your_secret_key';
-const SALT_ROUNDS = 10;
+const SECRET_KEY = process.env.SECRET_KEY; // Lấy từ .env
+const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS, 10);
 
 router.post('/login', (req, res) => {
   const { phone_number, password } = req.body;

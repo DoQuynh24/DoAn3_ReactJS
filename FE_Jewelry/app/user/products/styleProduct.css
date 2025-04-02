@@ -1,0 +1,161 @@
+/* Thêm style cho thông báo không đủ sản phẩm */
+#content-2 p {
+  width: 100%;
+  text-align: center;
+  font-size: 16px;
+  color: #666;
+  margin-top: 20px;
+}
+
+/* Các style hiện có */
+#content-1 {
+  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  padding: 0px 200px;
+  cursor: pointer;
+}
+
+.swiper {
+  width: 100%;
+  padding: 40px;
+}
+
+.swiper-slide {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.text {
+  padding-top: 10px;
+}
+
+#tools {
+  display: flex;
+  justify-content: space-between;
+  padding: 0px 100px;
+  align-items: center;
+  height: 40px;
+  font-size: 14px;
+  background: linear-gradient(90deg, #f8dff6, #e3e3e3);
+}
+
+#content-2 {
+  text-align: center;
+  display: flex;
+  justify-content: space-between;
+  padding: 50px 150px;
+  cursor: pointer;
+}
+
+.new {
+  position: relative;
+  display: inline-block;
+  padding: 10px;
+}
+.product_name{
+  color: #A64CA6;
+}
+
+.heart-icon1 {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background-color: transparent;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: transform 0.2s ease-in-out;
+}
+
+.heart-icon1:hover {
+  transform: scale(1.2);
+}
+
+.img-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.img-poster {
+  width: 50%;
+  height: 230px;
+  cursor: pointer;
+  margin-bottom: 30px;
+}
+
+/* === ACCORDION === */
+.accordion {
+  max-width: 80%;
+  margin: 20px auto;
+  background: white;
+}
+
+.accordion-item {
+  border-bottom: 1px solid #ddd;
+  transition: all 0.3s ease-in-out;
+}
+
+.accordion-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  cursor: pointer;
+  font-size: 20px;
+  transition: background 0.3s;
+  position: relative;
+}
+
+.accordion-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background: #ccc;
+}
+
+.accordion-title::before {
+  top: 0;
+}
+
+.accordion-title::after {
+  bottom: 0;
+}
+
+.accordion-title:hover {
+  background: #e0e0e0;
+}
+
+.plus-icon {
+  font-size: 18px;
+  font-weight: bold;
+  color: #666;
+}
+
+.accordion-content {
+  max-height: 0;
+  overflow: hidden;
+  padding: 0 15px;
+  transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+}
+
+.accordion-content.open {
+  max-height: 600px;
+  padding: 10px 30px;
+}
+
+.accordion-content p {
+  margin-bottom: 10px;
+  line-height: 1.5;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-size: 15px;
+}
+
+.size {
+  display: block;
+  margin: 20px auto;
+}

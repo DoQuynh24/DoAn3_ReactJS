@@ -17,7 +17,7 @@ Invoices.getAll = (result) => {
     SELECT 
       i.invoiceID, i.perID, i.receiverName, i.receiverPhone, i.fullAddress, 
       i.paymentMethod, i.status, i.createdAt,
-      id.detailID, id.productID, id.materialID, id.price, id.ringSize,
+      id.detailID, id.productID, id.materialID, id.unitPrice, id.shippingFee, id.totalPrice, id.ringSize, id.quantity,
       p.product_name, m.material_name,
       pi.imageURL
     FROM Invoice i
@@ -42,7 +42,7 @@ Invoices.getById = (invoiceID, result) => {
     SELECT 
       i.invoiceID, i.perID, i.receiverName, i.receiverPhone, i.fullAddress, 
       i.paymentMethod, i.status, i.createdAt,
-      id.detailID, id.productID, id.materialID, id.price, id.ringSize,
+      id.detailID, id.productID, id.materialID, id.unitPrice, id.shippingFee, id.totalPrice, id.ringSize, id.quantity,
       p.product_name, m.material_name,
       pi.imageURL
     FROM Invoice i
@@ -72,7 +72,7 @@ Invoices.getByPerID = (perID, result) => {
     SELECT 
       i.invoiceID, i.perID, i.receiverName, i.receiverPhone, i.fullAddress, 
       i.paymentMethod, i.status, i.createdAt,
-      id.detailID, id.productID, id.materialID, id.price, id.ringSize,
+      id.detailID, id.productID, id.materialID, id.unitPrice, id.shippingFee, id.totalPrice, id.ringSize, id.quantity,
       p.product_name, m.material_name,
       pi.imageURL
     FROM Invoice i
@@ -92,7 +92,6 @@ Invoices.getByPerID = (perID, result) => {
   });
 };
 
-// Thêm hóa đơn mới
 Invoices.insert = (newInvoice, invoiceDetail, result) => {
   const sqlInvoice = `
     INSERT INTO Invoice (perID, receiverName, receiverPhone, fullAddress, paymentMethod, status)
@@ -115,30 +114,55 @@ Invoices.insert = (newInvoice, invoiceDetail, result) => {
         return;
       }
 
-      const invoiceID = invoiceResult.insertId;
-
-      // Đoạn mã sửa đổi ở đây: thêm quantity vào InvoiceDetail
-      const sqlDetail = `
-        INSERT INTO InvoiceDetail (invoiceID, productID, materialID, price, ringSize, quantity)
-        VALUES (?, ?, ?, ?, ?, ?)
+      // Lấy invoiceID từ bản ghi vừa thêm dựa trên perID, receiverPhone và fullAddress
+      const getInvoiceIDQuery = `
+        SELECT invoiceID 
+        FROM Invoice 
+        WHERE perID = ? AND receiverPhone = ? AND fullAddress = ? 
+        ORDER BY createdAt DESC 
+        LIMIT 1
       `;
       db.query(
-        sqlDetail,
-        [
-          invoiceID,
-          invoiceDetail.productID,
-          invoiceDetail.materialID,
-          invoiceDetail.price,
-          invoiceDetail.ringSize || null,
-          invoiceDetail.quantity || 1, // Thêm quantity, mặc định là 1 nếu không có giá trị
-        ],
-        (err, detailResult) => {
-          if (err) {
-            console.error("Lỗi khi thêm chi tiết hóa đơn:", err);
-            result(err, null);
+        getInvoiceIDQuery,
+        [newInvoice.perID, newInvoice.receiverPhone, newInvoice.fullAddress],
+        (err, idResult) => {
+          if (err || !idResult[0]) {
+            console.error("Không thể lấy invoiceID:", err);
+            result(new Error("Không thể lấy invoiceID"), null);
             return;
           }
-          result(null, { invoiceID, ...newInvoice, detail: invoiceDetail });
+
+          const invoiceID = idResult[0].invoiceID;
+
+          const sqlDetail = `
+            INSERT INTO InvoiceDetail (invoiceID, productID, materialID, unitPrice, shippingFee, totalPrice, ringSize, quantity)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          `;
+          db.query(
+            sqlDetail,
+            [
+              invoiceID,
+              invoiceDetail.productID,
+              invoiceDetail.materialID,
+              invoiceDetail.unitPrice,
+              invoiceDetail.shippingFee,
+              invoiceDetail.totalPrice,
+              invoiceDetail.ringSize || null,
+              invoiceDetail.quantity || 1,
+            ],
+            (err, detailResult) => {
+              if (err) {
+                console.error("Lỗi khi thêm chi tiết hóa đơn:", err);
+                result(err, null);
+                return;
+              }
+              result(null, {
+                invoiceID,
+                ...newInvoice,
+                detail: { detailID: detailResult.insertId, ...invoiceDetail },
+              });
+            }
+          );
         }
       );
     }
@@ -146,39 +170,55 @@ Invoices.insert = (newInvoice, invoiceDetail, result) => {
 };
 // Cập nhật hóa đơn
 Invoices.update = (invoiceID, updatedInvoice, result) => {
+  // Tạo câu SQL động dựa trên các trường được cung cấp
+  const fields = [];
+  const values = [];
+
+  if (updatedInvoice.receiverName) {
+    fields.push("receiverName = ?");
+    values.push(updatedInvoice.receiverName);
+  }
+  if (updatedInvoice.receiverPhone) {
+    fields.push("receiverPhone = ?");
+    values.push(updatedInvoice.receiverPhone);
+  }
+  if (updatedInvoice.fullAddress) {
+    fields.push("fullAddress = ?");
+    values.push(updatedInvoice.fullAddress);
+  }
+  if (updatedInvoice.paymentMethod) {
+    fields.push("paymentMethod = ?");
+    values.push(updatedInvoice.paymentMethod);
+  }
+  if (updatedInvoice.status) {
+    fields.push("status = ?");
+    values.push(updatedInvoice.status);
+  }
+
+  if (fields.length === 0) {
+    result({ message: "Không có dữ liệu để cập nhật" }, null);
+    return;
+  }
+
   const sql = `
     UPDATE Invoice 
-    SET 
-      receiverName = ?, 
-      receiverPhone = ?, 
-      fullAddress = ?, 
-      paymentMethod = ?, 
-      status = ?
+    SET ${fields.join(", ")}
     WHERE invoiceID = ?
   `;
-  db.query(
-    sql,
-    [
-      updatedInvoice.receiverName,
-      updatedInvoice.receiverPhone,
-      updatedInvoice.fullAddress,
-      updatedInvoice.paymentMethod,
-      updatedInvoice.status,
-      invoiceID,
-    ],
-    (err, response) => {
-      if (err) {
-        console.error("Lỗi khi cập nhật hóa đơn:", err);
-        result(err, null);
-        return;
-      }
-      if (response.affectedRows === 0) {
-        result({ message: "Hóa đơn không tồn tại" }, null);
-        return;
-      }
-      result(null, { invoiceID, ...updatedInvoice });
+  values.push(invoiceID);
+
+  db.query(sql, values, (err, response) => {
+    if (err) {
+      console.error("Lỗi khi cập nhật hóa đơn:", err);
+      result(err, null);
+      return;
     }
-  );
+    if (response.affectedRows === 0) {
+      result({ message: "Hóa đơn không tồn tại" }, null);
+      return;
+    }
+    result(null, { invoiceID, ...updatedInvoice });
+  });
 };
 
 // Xóa hóa đơn
