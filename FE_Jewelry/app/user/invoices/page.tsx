@@ -163,8 +163,8 @@ export default function Invoice() {
   };
 
   const statusToTabMap: { [key: string]: string } = {
-    "Chờ xác nhận": "Chờ thanh toán",
-    "Chờ lấy hàng": "Vận chuyển",
+    "Chờ xác nhận": "Chờ xác nhận",
+    "Chờ lấy hàng": "Đang lấy hàng",
     "Chờ giao hàng": "Chờ giao hàng",
     "Đã giao": "Hoàn thành",
     "Đã hủy": "Đã hủy",
@@ -206,7 +206,7 @@ export default function Invoice() {
         </div>
 
         <ul className="nav-tabs">
-          {["Tất cả", "Chờ thanh toán", "Vận chuyển", "Chờ giao hàng", "Hoàn thành", "Đã hủy", "Trả hàng/Hoàn tiền"].map(
+          {["Tất cả", "Chờ xác nhận", "Đang lấy hàng", "Chờ giao hàng", "Hoàn thành", "Đã hủy", "Trả hàng/Hoàn tiền"].map(
             (tab) => (
               <li key={tab} className="nav-item">
                 <button
@@ -351,7 +351,6 @@ export default function Invoice() {
                   </div>
 
                   <div className="product-details-modal">
-                    <h6>Chi Tiết Sản Phẩm</h6>
                     <div className="product-info-modal">
                       <Image
                         src={
@@ -376,7 +375,6 @@ export default function Invoice() {
                   </div>
 
                   <div className="price-details">
-                    <h6>Thông Tin Giá</h6>
                     <div className="price-row">
                       <span>Tổng tiền hàng</span>
                       <span>

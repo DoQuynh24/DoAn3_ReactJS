@@ -128,6 +128,10 @@
 }
 
 /* Invoice Card */
+.invoice-list{
+  height: 700px;
+  overflow-y: auto;
+}
 .invoice-card {
   border: 1px solid #eee;
   margin-bottom: 15px;
