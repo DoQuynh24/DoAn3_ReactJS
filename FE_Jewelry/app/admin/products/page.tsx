@@ -448,7 +448,6 @@ export default function AdminProduct() {
   return (
     <Layout>
       <Row>
-        {/* Sidebar for Categories and Materials */}
         <Col md={2} className="sidebar">
           <div className="product-count">
             <p>

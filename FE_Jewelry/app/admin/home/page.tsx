@@ -63,7 +63,7 @@ export default function AdminHome() {
         </div>
         <div className="right-section">
           <div className="contact-card">
-            <h3>Hotline: 1900 4515</h3>
+            <h3>Hotline: 0364 554 001</h3>
             <button className="app-btn">Tải ứng dụng</button>
             <button className="market-btn">Android Market</button>
           </div>

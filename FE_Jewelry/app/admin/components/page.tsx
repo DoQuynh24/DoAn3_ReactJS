@@ -68,6 +68,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <header className="dashboard-header">
         <div className="header-left">
           <span className="brand">Jewelry Dashboard</span>
+          <p className="dashboard-date">
+        {new Date().toLocaleDateString("vi-VN", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })}
+      </p>
+
         </div>
         <div className="header-nav">
           {navItems.map((item) => (

@@ -3,6 +3,7 @@ var router = express.Router();
 const invoicesController = require("../controllers/invoices.controller");
 
 router.get('/', invoicesController.getAll);
+router.get('/all', invoicesController.getAllInvoices);
 router.get('/:invoiceID', invoicesController.getById);
 router.post('/add', invoicesController.insert);
 router.post('/update', invoicesController.update);

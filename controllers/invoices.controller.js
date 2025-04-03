@@ -1,7 +1,7 @@
 const Invoices = require("../models/invoices.model");
 const db = require("../common/db");
 
-// Lấy tất cả hóa đơn
+// Lấy tất cả hóa đơn(phía người dùng)
 exports.getAll = (req, res) => {
     const perID = req.query.perID;
   
@@ -16,6 +16,15 @@ exports.getAll = (req, res) => {
       res.json({ success: true, data });
     });
   };
+// Lấy tất cả hóa đơn (dành cho admin)
+exports.getAllInvoices = (req, res) => {
+  Invoices.getAll((err, data) => {
+    if (err) {
+      return res.status(500).json({ success: false, message: "Lỗi server", error: err });
+    }
+    res.json({ success: true, data });
+  });
+};
 // Lấy hóa đơn theo ID
 exports.getById = (req, res) => {
   const invoiceID = req.params.invoiceID;
