@@ -20,15 +20,15 @@
     z-index: 1000;
   }
   .dashboard-date {
-    font-size: 16px;
+    font-size: 13px;
     color: #666;
   }
   .header-left {
-    flex: 1;
+    display:grid;
   }
   
   .brand {
-    font-size: 24px;
+    font-size: 25px;
     color: #a64ca6;
     font-weight: 600;
   }
