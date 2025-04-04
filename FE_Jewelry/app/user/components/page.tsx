@@ -89,11 +89,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("userInfo");
-    setUserInfo(null);
-    setIsUserPanelOpen(false);
-    router.push("/user/login");
+    if (confirm("Bạn có chắc chắn muốn đăng xuất không?")) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("userInfo");
+      setUserInfo(null);
+      setIsUserPanelOpen(false);
+      router.push("/user/login");
+    }
   };
 
   const handleChangePassword = async () => {
@@ -203,7 +205,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
         <div className={`user-panel ${isUserPanelOpen ? "open" : ""}`}>
           <div className="user-panel-content">
-            <h1>TÀI KHOẢN CỦA TÔI</h1>
+            <p>TÀI KHOẢN CỦA TÔI</p>
             <button className="close-btn" onClick={() => setIsUserPanelOpen(false)}>
               <Image src="/images/right.png" alt="right" width={20} height={20} />
             </button>

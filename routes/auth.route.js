@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const db = require('../common/db');
 
-const SECRET_KEY = process.env.SECRET_KEY; // Lấy từ .env
+const SECRET_KEY = process.env.SECRET_KEY; 
 const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS, 10);
 
 router.post('/login', (req, res) => {
@@ -23,7 +23,7 @@ router.post('/login', (req, res) => {
     }
 
     if (result.length === 0) {
-      return res.status(400).json({ success: false, message: 'Số điện thoại không tồn tại' });
+      return res.status(400).json({ success: false, message: 'Tài khoản hoặc mật khẩu không đúng' });
     }
 
     const user = result[0];
@@ -35,7 +35,7 @@ router.post('/login', (req, res) => {
       }
 
       if (!isMatch) {
-        return res.status(400).json({ success: false, message: 'phone_number or password are invalid' });
+        return res.status(400).json({ success: false, message: 'Tài khoản hoặc mật khẩu không đúng' });
       }
 
       const token = jwt.sign(
@@ -44,13 +44,13 @@ router.post('/login', (req, res) => {
         { expiresIn: '1h' }
       );
 
-      // Thêm perID vào response
+
       res.json({
         success: true,
         token,
         role: user.role,
         full_name: user.full_name,
-        perID: user.perID, // Thêm perID vào đây
+        perID: user.perID, 
       });
     });
   });
@@ -154,5 +154,18 @@ router.put('/change-password', (req, res) => {
     });
   });
 });
+// Thêm endpoint kiểm tra token
+router.get('/verify-token', (req, res) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) {
+    return res.status(401).json({ success: false, message: 'Không có token' });
+  }
 
+  try {
+    const decoded = jwt.verify(token, SECRET_KEY);
+    res.json({ success: true, role: decoded.role, perID: decoded.perID });
+  } catch (err) {
+    res.status(401).json({ success: false, message: 'Token không hợp lệ hoặc đã hết hạn' });
+  }
+});
 module.exports = router;

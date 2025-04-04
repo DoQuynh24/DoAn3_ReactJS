@@ -64,10 +64,14 @@
   .header-right {
     display: flex;
     align-items: center;
-    gap: 15px;
     margin-left: 60px;
   }
-  
+  .header-right input[readonly] {
+    color: #666;
+    background: transparent;
+    border: none;
+    width: 80px;
+  }
   .header-right span {
     font-size: 16px;
     color: #333;

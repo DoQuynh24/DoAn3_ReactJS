@@ -18,6 +18,10 @@ interface ChatUser {
   name: string;
   messages: Message[];
 }
+interface UserInfo {
+  full_name: string;
+  phone_number: string;
+}
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const router = useRouter();
@@ -25,11 +29,26 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showChat, setShowChat] = useState(false);
   const [currentChatUser, setCurrentChatUser] = useState<ChatUser | null>(null);
   const [newMessage, setNewMessage] = useState("");
-  const [activeTab, setActiveTab] = useState("/admin/home"); // Mặc định là Home
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [isClient, setIsClient] = useState(false);
+  const [activeTab, setActiveTab] = useState("/admin/home"); 
 
-  // Đồng bộ activeTab với URL hiện tại
   useEffect(() => {
-    setActiveTab(pathname); // Cập nhật activeTab khi pathname thay đổi
+    setIsClient(true);
+    const storedUserInfo = localStorage.getItem("userInfo");
+    if (storedUserInfo) {
+      const parsedUserInfo = JSON.parse(storedUserInfo);
+      setUserInfo(parsedUserInfo);
+      if (parsedUserInfo.role !== "Admin") {
+        router.push("/user/login");
+      }
+    } else {
+      router.push("/user/login");
+    }
+  }, [router]);
+
+  useEffect(() => {
+    setActiveTab(pathname);
   }, [pathname]);
 
   const openChatWithUser = (user: ChatUser) => {
@@ -52,7 +71,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setActiveTab(path);
     router.push(path);
   };
-
+  const handleLogout = () => {
+    if (confirm("Bạn có chắc chắn muốn đăng xuất không?")) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("userInfo");
+      setUserInfo(null);
+      router.push("/user/login");
+    }
+  };
   const navItems = [
     { path: "/admin/home", label: "Tổng quan" },
     { path: "/admin/products", label: "Sản phẩm" },
@@ -90,8 +116,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           ))}
         </div>
         <div className="header-right">
-          <span>Đỗ Quỳnh</span>
-          <button className="logout-btn" onClick={() => router.push("/logout")}>
+          <input type="text" value={userInfo?.full_name || "Chưa đăng nhập"} readOnly />
+          <button className="logout-btn" onClick={handleLogout}>
             Đăng xuất
           </button>
         </div>

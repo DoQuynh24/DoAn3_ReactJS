@@ -13,6 +13,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState("");
+  const [agreeTerms, setAgreeTerms] = useState(false); 
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -24,25 +25,20 @@ export default function Login() {
         phone_number: phoneNumber,
         password,
       });
-      console.log('API response:', response.data); // Log response từ API
   
       if (response.data.success) {
-        // Lưu token vào localStorage
         localStorage.setItem("token", response.data.token);
-  
-        // Lưu thông tin người dùng vào localStorage, bao gồm perID
         const userInfo = {
           full_name: response.data.full_name || "Người dùng",
           phone_number: phoneNumber,
-          perID: response.data.perID, // Lưu perID
+          perID: response.data.perID, 
+          role: response.data.role,
         };
-        console.log('Saving userInfo to localStorage:', userInfo); // Log userInfo trước khi lưu
         localStorage.setItem("userInfo", JSON.stringify(userInfo));
-        console.log('localStorage userInfo after saving:', localStorage.getItem("userInfo")); // Log dữ liệu sau khi lưu
-  
-        // Chuyển hướng dựa trên vai trò
+        console.log('localStorage userInfo after saving:', localStorage.getItem("userInfo"));
+        console.log("Navigating to:", response.data.role === "Admin" ? "/admin/products" : "/user/products");
         if (response.data.role === "Admin") {
-          router.push("/admin/products");
+          router.push("/admin/home");
         } else if (response.data.role === "Khách hàng") {
           router.push("/user/products");
         }
@@ -51,9 +47,15 @@ export default function Login() {
       setError(err.response?.data?.message || "Đăng nhập thất bại");
     }
   };
+
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (!agreeTerms) {
+      setError("Vui lòng đồng ý với điều khoản dịch vụ!");
+      return;
+    }
 
     try {
       const response = await axios.post("http://localhost:4000/auth/register", {
@@ -69,6 +71,10 @@ export default function Login() {
     } catch (err: any) {
       setError(err.response?.data?.message || "Đăng ký thất bại");
     }
+  };
+
+  const handleForgotPassword = () => {
+    alert("Vui lòng nhập số điện thoại để khôi phục mật khẩu!");
   };
 
   return (
@@ -125,6 +131,14 @@ export default function Login() {
                   />
                 </button>
               </div>
+              <div className="forgot-password">
+                <p  className="forgot-password-link">
+                  Bạn đã có tài khoản
+                </p>
+                <button type="button" onClick={handleForgotPassword} className="forgot-password-link">
+                  Quên mật khẩu?
+                </button>
+              </div>
               {error && <p className="error-message">{error}</p>}
               <button type="submit" className="auth-button">
                 ĐĂNG NHẬP
@@ -155,7 +169,7 @@ export default function Login() {
               <div className="input-group">
                 <Image src="/images/password.png" alt="password" width={18} height={18} className="input-icon" />
                 <input
-                  type={showRegisterPassword ? "text" : "password"}
+                  type={showRegisterPassword ? "text" : ""}
                   placeholder="Mật khẩu"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -173,6 +187,14 @@ export default function Login() {
                     height={18}
                   />
                 </button>
+              </div>
+              <div className="terms-checkbox">
+                <input
+                  type="checkbox"
+                  checked={agreeTerms}
+                  onChange={(e) => setAgreeTerms(e.target.checked)}
+                />
+                <label>Tôi đồng ý với <a href="/terms">điều khoản dịch vụ</a></label>
               </div>
               {error && <p className="error-message">{error}</p>}
               <button type="submit" className="auth-button">
