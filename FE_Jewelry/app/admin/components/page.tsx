@@ -4,6 +4,7 @@ import Image from "next/image";
 import "./styleAdmin.css";
 import { useRouter, usePathname } from "next/navigation";
 import "bootstrap/dist/css/bootstrap.min.css";
+import io from "socket.io-client";
 
 interface LayoutProps {
   children: ReactNode;
@@ -18,32 +19,50 @@ interface ChatUser {
   name: string;
   messages: Message[];
 }
+
 interface UserInfo {
   full_name: string;
   phone_number: string;
+  role: "Khách hàng" | "Admin";
 }
+
+const socket = io("http://localhost:4000");
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const router = useRouter();
-  const pathname = usePathname(); // Lấy URL hiện tại
+  const pathname = usePathname();
   const [showChat, setShowChat] = useState(false);
   const [currentChatUser, setCurrentChatUser] = useState<ChatUser | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isClient, setIsClient] = useState(false);
-  const [activeTab, setActiveTab] = useState("/admin/home"); 
+  const [activeTab, setActiveTab] = useState("/admin/home");
+  const [chatUsers, setChatUsers] = useState<ChatUser[]>([]);
 
   useEffect(() => {
     setIsClient(true);
     const storedUserInfo = localStorage.getItem("userInfo");
     if (storedUserInfo) {
-      const parsedUserInfo = JSON.parse(storedUserInfo);
+      const parsedUserInfo: UserInfo = JSON.parse(storedUserInfo);
       setUserInfo(parsedUserInfo);
       if (parsedUserInfo.role !== "Admin") {
         router.push("/user/login");
+      } else {
+        socket.emit("joinAdmin");
+        console.log("Admin joined adminRoom");
       }
     } else {
       router.push("/user/login");
+    }
+
+    const storedChats = localStorage.getItem("adminChats");
+    if (storedChats) {
+      const chats: ChatUser[] = JSON.parse(storedChats);
+      setChatUsers(chats);
+      chats.forEach((chat: ChatUser) => {
+        socket.emit("joinRoom", chat.name);
+        console.log(`Admin rejoined room: ${chat.name}`);
+      });
     }
   }, [router]);
 
@@ -51,18 +70,55 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setActiveTab(pathname);
   }, [pathname]);
 
+  useEffect(() => {
+    socket.on("receiveMessage", (data: { sender: string; text: string; userName: string }) => {
+      console.log("Admin received:", data);
+      const { sender, text, userName } = data;
+      setChatUsers((prev) => {
+        const existingUser = prev.find((u) => u.name === userName);
+        let updatedChats: ChatUser[];
+        if (existingUser) {
+          updatedChats = prev.map((u) =>
+            u.name === userName
+              ? { ...u, messages: [...u.messages, { sender, text }] }
+              : u
+          );
+        } else {
+          updatedChats = [...prev, { name: userName, messages: [{ sender, text }] }];
+          socket.emit("joinRoom", userName);
+        }
+        localStorage.setItem("adminChats", JSON.stringify(updatedChats));
+        return updatedChats;
+      });
+
+      if (currentChatUser && currentChatUser.name === userName) {
+        setCurrentChatUser((prev) => ({
+          ...prev!,
+          messages: [...prev!.messages, { sender, text }],
+        }));
+      }
+    });
+
+    return () => {
+      socket.off("receiveMessage");
+    };
+  }, [currentChatUser]);
+
   const openChatWithUser = (user: ChatUser) => {
     setCurrentChatUser(user);
+    socket.emit("joinRoom", user.name);
     setShowChat(true);
   };
 
   const sendMessage = () => {
     if (newMessage.trim() !== "" && currentChatUser) {
-      const updatedChat = {
-        ...currentChatUser,
-        messages: [...currentChatUser.messages, { sender: "admin", text: newMessage }],
+      const messageData = {
+        sender: "admin",
+        text: newMessage,
+        userName: currentChatUser.name,
+        room: currentChatUser.name,
       };
-      setCurrentChatUser(updatedChat);
+      socket.emit("sendMessage", messageData);
       setNewMessage("");
     }
   };
@@ -71,6 +127,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     setActiveTab(path);
     router.push(path);
   };
+
   const handleLogout = () => {
     if (confirm("Bạn có chắc chắn muốn đăng xuất không?")) {
       localStorage.removeItem("token");
@@ -79,6 +136,15 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       router.push("/user/login");
     }
   };
+
+  const getLastMessagePreview = (user: ChatUser) => {
+    const lastMessage = user.messages[user.messages.length - 1];
+    if (lastMessage.sender === "admin") {
+      return `Bạn: ${lastMessage.text}`;
+    }
+    return lastMessage.text;
+  };
+
   const navItems = [
     { path: "/admin/home", label: "Tổng quan" },
     { path: "/admin/products", label: "Sản phẩm" },
@@ -95,14 +161,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div className="header-left">
           <span className="brand">JEWELRY DASHBOARD</span>
           <span className="dashboard-date">
-        {new Date().toLocaleDateString("vi-VN", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        })}
-      </span>
-
+            {new Date().toLocaleDateString("vi-VN", {
+              weekday: "long",
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })}
+          </span>
         </div>
         <div className="header-nav">
           {navItems.map((item) => (
@@ -140,55 +205,30 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 <span>{currentChatUser.name}</span>
               </>
             ) : (
-              <span>Tin nhắn</span>
+              <ul>
+              <li style={{ fontSize: "28px" }}>Jewelry</li>
+              <li style={{ fontSize: "13px"}}>Natural Diamond Jewelry</li>
+            </ul>
             )}
             <button onClick={() => setShowChat(false)}>✖</button>
           </div>
           <div className="chat-body">
             {currentChatUser ? (
-              currentChatUser.messages.map((msg, index) => (
-                <div key={index} className={`message ${msg.sender}`}>
-                  <span>{msg.text}</span>
-                </div>
-              ))
+              <div className="chat-messages">
+                {currentChatUser.messages.map((msg, index) => (
+                  <div key={index} className={`message ${msg.sender}`}>
+                    <span>{msg.text}</span>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="chat-contacts">
-                <div
-                  className="contact"
-                  onClick={() =>
-                    openChatWithUser({
-                      name: "Anh Quan",
-                      messages: [{ sender: "user", text: "Chào shop nhaa, mình muốn tư vấn" }],
-                    })
-                  }
-                >
-                  <span className="contact-name">Anh Quan</span>
-                  <span className="contact-msg">Chào shop nhaa, mình muốn tư vấn</span>
-                </div>
-                <div
-                  className="contact"
-                  onClick={() =>
-                    openChatWithUser({
-                      name: "Nguyễn Mai",
-                      messages: [{ sender: "user", text: "Sản phẩm này còn hàng không shop?" }],
-                    })
-                  }
-                >
-                  <span className="contact-name">Nguyễn Mai</span>
-                  <span className="contact-msg">Sản phẩm này còn hàng không shop?</span>
-                </div>
-                <div
-                  className="contact"
-                  onClick={() =>
-                    openChatWithUser({
-                      name: "Trần Bình",
-                      messages: [{ sender: "user", text: "Mình muốn đặt đơn" }],
-                    })
-                  }
-                >
-                  <span className="contact-name">Trần Bình</span>
-                  <span className="contact-msg">Mình muốn đặt đơn</span>
-                </div>
+                {chatUsers.map((user, index) => (
+                  <div key={index} className="contact" onClick={() => openChatWithUser(user)}>
+                    <span className="contact-name">{user.name}</span>
+                    <span className="contact-msg">{getLastMessagePreview(user)}</span>
+                  </div>
+                ))}
               </div>
             )}
           </div>

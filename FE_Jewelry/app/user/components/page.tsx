@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import axios from "axios";
 import "./styleComponent.css";
+import io from "socket.io-client";
 
 interface LayoutProps {
   children: ReactNode;
@@ -34,7 +35,10 @@ interface Product {
 interface UserInfo {
   full_name: string;
   phone_number: string;
+  role: "Khách hàng" | "Admin";
 }
+
+const socket = io("http://localhost:4000");
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showChat, setShowChat] = useState(false);
@@ -59,10 +63,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
     const storedUserInfo = localStorage.getItem("userInfo");
     if (storedUserInfo) {
-      const parsedUserInfo = JSON.parse(storedUserInfo);
+      const parsedUserInfo: UserInfo = JSON.parse(storedUserInfo);
       setUserInfo(parsedUserInfo);
-    } else {
-      console.log("No userInfo found in localStorage");
+      socket.emit("joinRoom", parsedUserInfo.full_name);
+    }
+
+    const storedChat = localStorage.getItem("userChat");
+    if (storedChat) {
+      setCurrentChatUser(JSON.parse(storedChat));
     }
   }, []);
 
@@ -72,18 +80,54 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   }, [favouriteProducts, isClient]);
 
-  const openChatWithUser = (user: ChatUser) => {
-    setCurrentChatUser(user);
-    setShowChat(true);
+  useEffect(() => {
+    socket.on("receiveMessage", (data: { sender: string; text: string; userName: string }) => {
+      if (currentChatUser) {
+        const updatedChat = {
+          ...currentChatUser,
+          messages: [...currentChatUser.messages, { sender: data.sender, text: data.text }],
+        };
+        setCurrentChatUser(updatedChat);
+        localStorage.setItem("userChat", JSON.stringify(updatedChat));
+      }
+    });
+
+    return () => {
+      socket.off("receiveMessage");
+    };
+  }, [currentChatUser]);
+
+  const toggleChat = () => {
+    if (!showChat && !currentChatUser && userInfo) {
+      // Nếu chat chưa mở và chưa có currentChatUser, khởi tạo chat
+      const userChat: ChatUser = {
+        name: "Admin",
+        messages: [
+          {
+            sender: "admin",
+            text: `Xin chào ${userInfo?.full_name}, bạn cần đội ngũ Jewelry tư vấn?`,
+          },
+        ],
+      };
+      setCurrentChatUser(userChat);
+      localStorage.setItem("userChat", JSON.stringify(userChat));
+      if (userInfo) {
+        socket.emit("joinRoom", userInfo.full_name);
+      }
+    }
+    // Toggle trạng thái showChat (mở nếu đang đóng, đóng nếu đang mở)
+    setShowChat((prev) => !prev);
   };
 
   const sendMessage = () => {
-    if (newMessage.trim() !== "" && currentChatUser) {
-      const updatedChat = {
-        ...currentChatUser,
-        messages: [...currentChatUser.messages, { sender: "admin", text: newMessage }],
+    if (newMessage.trim() !== "" && currentChatUser && userInfo) {
+      const messageData = {
+        sender: "user",
+        text: newMessage,
+        userName: userInfo.full_name,
+        room: userInfo.full_name,
       };
-      setCurrentChatUser(updatedChat);
+      socket.emit("sendMessage", messageData);
       setNewMessage("");
     }
   };
@@ -100,7 +144,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const handleChangePassword = async () => {
     setError("");
-
     if (!currentPassword) {
       setError("Vui lòng nhập mật khẩu hiện tại");
       return;
@@ -141,12 +184,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     }
   };
 
-  // Hàm xử lý khi nhấp vào bill-order
   const handleViewInvoices = () => {
     router.push("/user/invoices");
   };
 
-  // Tránh render userInfo trên server
   if (!isClient) {
     return null;
   }
@@ -185,8 +226,8 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 alt="bill-order"
                 width={27}
                 height={27}
-                onClick={handleViewInvoices} 
-                style={{ cursor: "pointer" }} 
+                onClick={handleViewInvoices}
+                style={{ cursor: "pointer" }}
               />
             </span>
             <span>
@@ -217,16 +258,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </label>
               <input type="text" value={userInfo?.phone_number || "Chưa đăng nhập"} readOnly />
             </div>
-
             <div className="form-group">
               <label>
                 Tên hiển thị <span className="required">*</span>
               </label>
               <input type="text" value={userInfo?.full_name || "Chưa đăng nhập"} readOnly />
             </div>
-
             <p style={{ textAlign: "center" }}>Thay đổi mật khẩu</p>
-
             <div className="form-group">
               <label>Mật khẩu hiện tại</label>
               <input
@@ -236,7 +274,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 onChange={(e) => setCurrentPassword(e.target.value)}
               />
             </div>
-
             <div className="form-group">
               <label>Mật khẩu mới</label>
               <input
@@ -246,7 +283,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 onChange={(e) => setNewPassword(e.target.value)}
               />
             </div>
-
             <div className="form-group">
               <label>Xác nhận mật khẩu mới</label>
               <input
@@ -256,9 +292,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 onChange={(e) => setConfirmNewPassword(e.target.value)}
               />
             </div>
-
             {error && <p style={{ color: "red", textAlign: "center" }}>{error}</p>}
-
             <button className="logout" onClick={handleLogout}>
               <Image src="/images/logout.png" alt="logout" width={20} height={20} />
               <span style={{ paddingLeft: "10px", fontSize: "14px" }}>Đăng xuất</span>
@@ -315,7 +349,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               <a href="#">Tin tức</a>
             </div>
           </nav>
-
           <div className="search-box">
             <Image src="/images/search.png" alt="search" width={20} height={20} className="search-icon" />
             <input type="text" placeholder="Tìm kiếm nhanh..." />
@@ -324,28 +357,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       </div>
 
       <div id="content">{children}</div>
-      <button id="chat" onClick={() => setShowChat(!showChat)}>
+      <button id="chat" onClick={toggleChat}>
         <Image src="/images/chatbox.png" alt="chat" width={43} height={40} />
       </button>
       {showChat && (
         <div id="chat-box">
           <div id="chat-header">
-            {currentChatUser ? (
-              <>
-                <button onClick={() => setCurrentChatUser(null)}>
-                  <Image src="/images/back.png" alt="send" width={25} height={25} />
-                </button>
-                <p>{currentChatUser.name}</p>
-              </>
-            ) : (
-              <ul>
-                <li style={{ fontSize: "20px" }}>Jewelry</li>
-                <li style={{ fontSize: "13px" }}>Natural Diamond Jewelry</li>
-              </ul>
-            )}
+            <ul>
+              <li style={{ fontSize: "28px" }}>Jewelry</li>
+              <li style={{ fontSize: "13px", paddingLeft: "3px" }}>Natural Diamond Jewelry</li>
+            </ul>
             <button onClick={() => setShowChat(false)}>✖</button>
           </div>
-
           <div className="chat-messages">
             {currentChatUser?.messages.map((msg, index) => (
               <div key={index} className={`message ${msg.sender}`}>
@@ -409,7 +432,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </ul>
             </ul>
           </div>
-
           <div className="lienhe">
             <ul className="noidung">
               <li style={{ fontSize: "15px" }}>
@@ -439,7 +461,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </li>
             </ul>
           </div>
-
           <div className="lienhe">
             <ul className="noidung">
               <li style={{ fontSize: "15px" }}>
@@ -457,7 +478,6 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </li>
             </ul>
           </div>
-
           <div className="lienhe">
             <div className="noidung">
               <p style={{ fontSize: "15px" }}>

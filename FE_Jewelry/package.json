@@ -1,5 +1,5 @@
 {
-  "name": "FE_Jewelry",
+  "name": "fe_jewelry",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,12 +11,15 @@
   "dependencies": {
     "axios": "^1.8.2",
     "bootstrap": "^5.3.3",
+    "chart.js": "^4.4.8",
     "cors": "^2.8.5",
     "multer": "^1.4.5-lts.2",
     "next": "15.1.7",
     "react": "^19.0.0",
     "react-bootstrap": "^2.10.9",
+    "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.0.0",
+    "socket.io-client": "^4.8.1",
     "swiper": "^11.2.5"
   },
   "devDependencies": {

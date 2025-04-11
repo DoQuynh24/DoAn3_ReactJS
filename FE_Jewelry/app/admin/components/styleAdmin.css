@@ -137,20 +137,22 @@
     align-items: center;
   }
   
-  .chat-header span {
-    font-size: 16px;
-  }
-  
   .chat-header button {
     background: none;
     border: none;
     color: #fff;
     cursor: pointer;
   }
+  .chat-header ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
   
   .chat-body {
     padding: 15px;
-    max-height: 300px;
+    height: 300px;
     overflow-y: auto;
   }
   
@@ -181,26 +183,35 @@
   .contact-msg {
     font-size: 12px;
     color: #666;
+    display: block;
+    margin-top: 4px;
+  }
+  
+  .chat-messages {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
   
   .message {
-    margin: 8px 0;
     padding: 8px 12px;
-    border-radius: 12px;
-    max-width: 80%;
-    font-size: 13px;
+    margin: 5px 0;
+    border-radius: 10px;
+    max-width: 70%;
+    word-wrap: break-word;
   }
   
   .message.user {
-    background: #f8dff6;
-    color: #ad16ad;
+    background: #f1f1f1;
     align-self: flex-start;
+    margin-right: auto;
   }
   
   .message.admin {
     background: #a64ca6;
     color: #fff;
     align-self: flex-end;
+    margin-left: auto;
   }
   
   .chat-footer {
@@ -211,23 +222,23 @@
   
   .chat-footer input {
     flex: 1;
-    padding: 8px 12px;
+    padding: 8px 10px;
     border: 1px solid #ddd;
-    border-radius: 20px;
+    border-radius: 10px;
     outline: none;
     font-size: 13px;
   }
   
   .chat-footer button {
-    background: #a64ca6;
-    border: none;
-    border-radius: 50%;
-    padding: 8px;
     margin-left: 10px;
-    cursor: pointer;
-    transition: background 0.3s ease;
+  border: none;
+  cursor: pointer;
+  height: 30px;
+  width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
   }
   
-  .chat-footer button:hover {
-    background: #d6a8e3;
-  }
+  
