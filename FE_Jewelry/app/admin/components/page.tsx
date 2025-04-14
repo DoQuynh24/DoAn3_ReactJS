@@ -150,7 +150,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     { path: "/admin/products", label: "Sản phẩm" },
     { path: "/admin/invoices", label: "Hóa đơn" },
     { path: "/admin/import", label: "Nhập hàng" },
-    { path: "/admin/user", label: "Người dùng" },
+    { path: "/admin/users", label: "Khách hàng" },
     { path: "/admin/notifications", label: "Thông báo" },
     { path: "/admin/store", label: "Cửa hàng" },
   ];
