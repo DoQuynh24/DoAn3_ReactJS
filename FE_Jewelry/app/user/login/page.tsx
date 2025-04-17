@@ -13,34 +13,41 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [error, setError] = useState("");
-  const [agreeTerms, setAgreeTerms] = useState(false); 
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-  
+
     try {
       const response = await axios.post("http://localhost:4000/auth/login", {
         phone_number: phoneNumber,
         password,
       });
-  
+
       if (response.data.success) {
         localStorage.setItem("token", response.data.token);
         const userInfo = {
           full_name: response.data.full_name || "Người dùng",
           phone_number: phoneNumber,
-          perID: response.data.perID, 
+          perID: response.data.perID,
           role: response.data.role,
         };
         localStorage.setItem("userInfo", JSON.stringify(userInfo));
-        console.log('localStorage userInfo after saving:', localStorage.getItem("userInfo"));
+
+        // Khôi phục danh sách yêu thích từ localStorage dựa trên perID
+        const userFavouritesKey = `favouriteProducts_${response.data.perID}`;
+        const storedFavourites = localStorage.getItem(userFavouritesKey);
+        if (!storedFavourites) {
+          localStorage.setItem(userFavouritesKey, JSON.stringify([]));
+        }
+
         console.log("Navigating to:", response.data.role === "Admin" ? "/admin/products" : "/user/products");
         if (response.data.role === "Admin") {
           router.push("/admin/home");
         } else if (response.data.role === "Khách hàng") {
-          router.push("/user/products");
+          router.push("/user/home");
         }
       }
     } catch (err: any) {
@@ -132,7 +139,7 @@ export default function Login() {
                 </button>
               </div>
               <div className="forgot-password">
-                <p  className="forgot-password-link">
+                <p className="forgot-password-link">
                   Bạn đã có tài khoản
                 </p>
                 <button type="button" onClick={handleForgotPassword} className="forgot-password-link">
@@ -169,7 +176,7 @@ export default function Login() {
               <div className="input-group">
                 <Image src="/images/password.png" alt="password" width={18} height={18} className="input-icon" />
                 <input
-                  type={showRegisterPassword ? "text" : ""}
+                  type={showRegisterPassword ? "text" : "password"}
                   placeholder="Mật khẩu"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}

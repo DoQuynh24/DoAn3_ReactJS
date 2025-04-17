@@ -1,211 +1,265 @@
+/* styleDetails.css */
 #content {
-    width: 100%;
+  width: 100%;
 }
 
 #details {
-    width: 77%;
-    height: 650px;
-    margin: 0px auto;
-    display: flex;
+  width: 80%;
+  height: 650px;
+  margin: 0px auto;
+  display: flex;
 }
 
 #details-left {
-    width: 25%;
-    height: 650px;
-    display: flex;
-    align-items: center;
-
+  width: 28%;
+  height: 650px;
+  display: flex;
+  align-items: center;
 }
 
 .swiper-container {
-    width: 95%;
-    height: 90%;
-    overflow-y: auto;
-    scrollbar-width: none;
-    scroll-behavior: smooth;
+  width: 95%;
+  height: 90%;
+  overflow-y: auto;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
 }
 
 .swiper-slide {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 150px;
-    width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 150px;
+  width: 100%;
 }
 
 .thumb {
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 95%;
-    border: 1px solid #f8dff6;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 95%;
+  border: 1px solid #f8dff6;
 }
 
 .thumb img {
-    border: 2px solid transparent;
-    transition: 0.3s;
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+  border: 2px solid transparent;
+  transition: 0.3s;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .thumb:hover img,
 .thumb img.selected {
-    border-color: #f8dff6;
-    transform: scale(1.05);
+  border-color: #f8dff6;
+  transform: scale(1.05);
 }
 
 #details-center {
-    width: 45%;
-    display: flex;
-    align-items: center;
+  width: 45%;
+  display: flex;
+  align-items: center;
 }
 
 .selected {
-    margin: 0px auto;
+  margin: 0px auto;
 }
 
 #details-right {
-    width: 32%;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    display: flex;
-    flex-direction: column;
-    padding-top: 30px;
+  width: 32%;
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  display: flex;
+  flex-direction: column;
+  padding-top: 30px;
 }
 
 .name-product {
-    font-size: 25px;
-    margin-bottom: 10px;
+  font-size: 25px;
+  margin-bottom: 10px;
 }
 
 .price {
-    font-size: 30px;
-    color: #A64CA6;
-    font-weight: 500;
-    margin-bottom: 5px;
+  font-size: 30px;
+  color: #a64ca6;
+  font-weight: 500;
+  margin-bottom: 5px;
 }
 
 .original-price {
-    font-size: 15px;
-    color: #666;
-    text-decoration: line-through;
-    margin-bottom: 15px;
+  font-size: 15px;
+  color: #666;
+  text-decoration: line-through;
+  margin-bottom: 15px;
 }
 
 .detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px solid #ddd;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid #ddd;
 }
 
 .detail-row:last-child {
-    border-bottom: none;
+  border-bottom: none;
 }
 
 .material-container {
-    display: flex;
-    gap: 10px;
+  display: flex;
+  gap: 10px;
 }
 
 .material-box {
-    padding: 3px 8px;
-    color: black;
-    border-radius: 5px;
-    font-size: 13px;
-    cursor: pointer;
-    border: 1px solid #666;
-    font-weight: 400;
+  padding: 3px 8px;
+  color: black;
+  border-radius: 5px;
+  font-size: 13px;
+  cursor: pointer;
+  border: 1px solid #666;
+  font-weight: 400;
 }
 
 .material-box:hover {
-    border-color: #A64CA6;
-    transform: scale(1.05);
+  border-color: #a64ca6;
+  transform: scale(1.05);
 }
+
 .material-box.selected {
-    border-color: #A64CA6;
-    font-weight: bold;
-    color: #A64CA6
+  border-color: #a64ca6;
+  font-weight: bold;
+  color: #a64ca6;
 }
 
 #description-container {
-    width: 100%;
-    max-height: 100px;
-    overflow-y: auto;
-    padding: 10px;
-    scrollbar-width: none;
-    margin-top: 10px;
+  width: 100%;
+  max-height: 100px;
+  overflow-y: auto;
+  padding: 10px;
+  scrollbar-width: none;
+  margin-top: 10px;
 }
 
 .description {
-    font-size: 14px;
-    line-height: 1.5;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .buy-now {
-    padding: 10px 15px;
-    background-color: #A64CA6;
-    color: white;
-    font-weight: bold;
-    margin-top: 20px;
-    margin-bottom: 20px;
-    cursor: pointer;
-    font-size: 16px;
-    border: none;
+  padding: 10px 15px;
+  background-color: #a64ca6;
+  color: white;
+  font-weight: bold;
+  margin-top: 20px;
+  margin-bottom: 20px;
+  cursor: pointer;
+  font-size: 16px;
+  border: none;
 }
-.buy-now:hover{
-    background-color: #a64ca6c1;
+
+.buy-now:hover {
+  background-color: #a64ca6c1;
 }
+
 #other-1 {
-    width: 77%;
-    height: 250px;
-    margin: 0px auto;
+  width: 80%;
+  height: 250px;
+  margin: 0px auto;
 }
 
 .text-other {
-    font-size: 24px;
-    text-align: center;
-    padding-top: 10px;
-    color: #A64CA6;
-  
+  font-size: 24px;
+  text-align: center;
+  margin-top: 60px;
+  color: #a64ca6;
 }
 
 #other-detail {
-    justify-content: space-between;
-    display: flex;
-    padding: 8px 80px;
-    cursor: pointer;
+  justify-content: space-between;
+  display: flex;
+  padding: 8px 80px;
+  cursor: pointer;
 }
 
 #other-2 {
-    width: 77%;
-    text-align: center;
-    margin: 15px auto;
+  width: 100%;
+  text-align: center;
+  margin: 15px auto;
+}
+
+#content-2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding: 20px;
+  justify-content: center;
+}
+
+#content-2.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+#content-2.list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
 .new {
-    position: relative;
-    display: inline-block;
-    padding: 10px 15px;
-    margin: 0 auto;
-    justify-content: space-between;
-    cursor: pointer;
+  position: relative;
+  text-align: center;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background: #fff;
+  padding: 15px;
+  border-radius: 10px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.new:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.new.grid {
+  width: 100%;
+}
+
+.new.list {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  text-align: left;
+  padding: 10px;
 }
 
 .heart-icon1 {
-    position: absolute;
-    top: 10px;
-    right: 20px;
-    background-color: transparent;
-    border-radius: 50%;
-    padding: 5px;
-    cursor: pointer;
-    transition: transform 0.2s ease-in-out;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  cursor: pointer;
+  z-index: 1;
 }
 
-.heart-icon1:hover {
-    transform: scale(1.2);
+.new img {
+  border-radius: 5px;
+  object-fit: cover;
+}
+
+.product-info {
+  margin-top: 10px;
+}
+
+.product-name {
+  font-size: 17px;
+  color: #333;
+  margin: 5px 0;
+}
+
+.product-price {
+  font-size: 16px;
+  color: #a64ca6;
+  font-weight: bold;
 }

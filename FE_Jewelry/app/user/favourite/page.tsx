@@ -30,56 +30,64 @@ interface Product {
 export default function Favourite() {
   const [favouriteProducts, setFavouriteProducts] = useState<Product[]>([]);
   const [isClient, setIsClient] = useState(false);
+  const [userPerID, setUserPerID] = useState<number | null>(null);
 
   useEffect(() => {
     setIsClient(true);
-    const storedFavourites = typeof window !== "undefined" ? localStorage.getItem("favouriteProducts") : null;
-    if (storedFavourites) {
-      const parsedFavourites = JSON.parse(storedFavourites);
-      if (Array.isArray(parsedFavourites)) {
-        const filteredFavourites = parsedFavourites.filter((product: Product) => product.productID);
-        setFavouriteProducts(filteredFavourites);
+    const storedUserInfo = localStorage.getItem("userInfo");
+    if (storedUserInfo) {
+      const parsedUserInfo = JSON.parse(storedUserInfo);
+      setUserPerID(parsedUserInfo.perID);
 
-        // Đồng bộ dữ liệu từ API để đảm bảo materials đầy đủ
-        filteredFavourites.forEach((product: Product) => {
-          fetch(`http://localhost:4000/products/${product.productID}`)
-            .then((response) => response.json())
-            .then((response) => {
-              const data = response.data || response;
-              if (data) {
-                setFavouriteProducts((prev) =>
-                  prev.map((p) =>
-                    p.productID === product.productID
-                      ? {
-                          ...p,
-                          materials: data.materials,
-                          images: data.images.map((img: Image) => ({
-                            ...img,
-                            imageURL: img.imageURL
-                              ? img.imageURL.startsWith("/")
-                                ? `http://localhost:4000${img.imageURL}`
-                                : img.imageURL
-                              : "/images/addImage.png",
-                          })),
-                        }
-                      : p
-                  )
-                );
-              }
-            })
-            .catch((error) => {
-              console.error("Lỗi khi đồng bộ dữ liệu sản phẩm:", error);
-            });
-        });
+      const userFavouritesKey = `favouriteProducts_${parsedUserInfo.perID}`;
+      const storedFavourites = localStorage.getItem(userFavouritesKey);
+      if (storedFavourites) {
+        const parsedFavourites = JSON.parse(storedFavourites);
+        if (Array.isArray(parsedFavourites)) {
+          const filteredFavourites = parsedFavourites.filter((product: Product) => product.productID);
+          setFavouriteProducts(filteredFavourites);
+
+          filteredFavourites.forEach((product: Product) => {
+            fetch(`http://localhost:4000/products/${product.productID}`)
+              .then((response) => response.json())
+              .then((response) => {
+                const data = response.data || response;
+                if (data) {
+                  setFavouriteProducts((prev) =>
+                    prev.map((p) =>
+                      p.productID === product.productID
+                        ? {
+                            ...p,
+                            materials: data.materials,
+                            images: data.images.map((img: Image) => ({
+                              ...img,
+                              imageURL: img.imageURL
+                                ? img.imageURL.startsWith("/")
+                                  ? `http://localhost:4000${img.imageURL}`
+                                  : img.imageURL
+                                : "/images/addImage.png",
+                            })),
+                          }
+                        : p
+                    )
+                  );
+                }
+              })
+              .catch((error) => {
+                console.error("Lỗi khi đồng bộ dữ liệu sản phẩm:", error);
+              });
+          });
+        }
       }
     }
   }, []);
 
   useEffect(() => {
-    if (isClient) {
-      localStorage.setItem("favouriteProducts", JSON.stringify(favouriteProducts));
+    if (isClient && userPerID) {
+      const userFavouritesKey = `favouriteProducts_${userPerID}`;
+      localStorage.setItem(userFavouritesKey, JSON.stringify(favouriteProducts));
     }
-  }, [favouriteProducts, isClient]);
+  }, [favouriteProducts, isClient, userPerID]);
 
   const calculateProductPriceRange = (materials: Material[]) => {
     if (!materials || materials.length === 0) return { min: 0, max: 0 };
@@ -97,8 +105,6 @@ export default function Favourite() {
 
   return (
     <Layout>
-      <div id="content">
-        <h1 style={{ textAlign: "left", margin: "20px 0 10px 160px" }}>Sản phẩm yêu thích</h1>
         {isClient && favouriteProducts.length > 0 ? (
           <div id="content-2">
             <table className="favourite-table">
@@ -159,7 +165,6 @@ export default function Favourite() {
         ) : (
           <p style={{ textAlign: "center" }}>Bạn chưa có sản phẩm yêu thích nào.</p>
         )}
-      </div>
     </Layout>
   );
 }

@@ -6,7 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import Layout from "../../components/page";
 import "./styleDetails.css";
 import { Swiper, SwiperSlide } from "swiper/react";
-import { Mousewheel, Pagination, Autoplay } from "swiper/modules";
+import { Mousewheel } from "swiper/modules";
 import "swiper/css";
 import "swiper/css/pagination";
 
@@ -147,11 +147,9 @@ export default function Details() {
     }
   };
 
-  // Hàm xử lý khi nhấn nút "MUA NGAY"
   const handleBuyNow = () => {
     if (!product) return;
 
-    // Kiểm tra xem người dùng đã đăng nhập chưa
     const storedUserInfo = localStorage.getItem("userInfo");
     if (!storedUserInfo) {
       alert("Vui lòng đăng nhập để đặt hàng!");
@@ -159,7 +157,6 @@ export default function Details() {
       return;
     }
 
-    // Tạo object chứa thông tin sản phẩm để truyền sang trang Order
     const orderData = {
       productID: product.productID,
       product_name: product.product_name,
@@ -168,7 +165,6 @@ export default function Details() {
       imageURL: selectedImage || product.images[0]?.imageURL,
     };
 
-    // Chuyển hướng đến trang Order và truyền dữ liệu qua query parameters
     const query = new URLSearchParams(orderData as any).toString();
     router.push(`/user/orders?${query}`);
   };
@@ -210,7 +206,7 @@ export default function Details() {
 
           <div id="details-right">
             <p className="name-product">{product.product_name}</p>
-            <p className="price">{getCurrentPrice().toLocaleString("vi-VN")} ₫</p>
+            <span className="price">{getCurrentPrice().toLocaleString("vi-VN")} ₫</span>
             <p className="original-price">{(getCurrentPrice() * 1.05).toLocaleString("vi-VN")} ₫</p>
 
             <div className="detail-row">
@@ -242,13 +238,17 @@ export default function Details() {
             <div id="description-container">
               <p className="description">{product.description}</p>
             </div>
-            <button className="buy-now" onClick={handleBuyNow}>MUA NGAY</button>
+            <button className="buy-now" onClick={handleBuyNow}>
+              MUA NGAY
+            </button>
             <p>
               📞<u>0364 554 001</u>
             </p>
             <div className="detail-row">
               <span style={{ fontSize: "13px", color: "gray", fontStyle: "italic" }}>
-                (*) Giá niêm yết trên đây là GIÁ THAM KHẢO dành cho vỏ nhẫn kim cương thiên nhiên với các thông số tiêu chuẩn. Giá chưa bao gồm giá viên chủ kim cương nếu có và có thể thay đổi trên thực tế tùy thuộc vào thông số cụ thể theo ni tay và yêu cầu riêng của từng khách hàng.
+                (*) Giá niêm yết trên đây là GIÁ THAM KHẢO dành cho vỏ nhẫn kim cương thiên nhiên với các thông số tiêu
+                chuẩn. Giá chưa bao gồm giá viên chủ kim cương nếu có và có thể thay đổi trên thực tế tùy thuộc vào thông
+                số cụ thể theo ni tay và yêu cầu riêng của từng khách hàng.
               </span>
             </div>
           </div>
@@ -257,26 +257,26 @@ export default function Details() {
         <div id="other-1">
           <p className="text-other">Chính sách của Jewelry</p>
           <div id="other-detail">
-            <Image src="/images/other1.png" alt="other1" width={250} height={220} />
-            <Image src="/images/other1.png" alt="other1" width={250} height={220} />
-            <Image src="/images/other1.png" alt="other1" width={250} height={220} />
+            <Image src="/images/other1.png" alt="other1" width={260} height={220} />
+            <Image src="/images/other2.png" alt="other2" width={260} height={220} />
+            <Image src="/images/other3.png" alt="other3" width={260} height={220} />
           </div>
         </div>
 
         <div id="other-2">
           <p className="text-other">Có thể bạn quan tâm</p>
-          <Swiper
-            modules={[Pagination, Autoplay]}
-            spaceBetween={0}
-            slidesPerView={4}
-            autoplay={{ delay: 2000 }}
-            loop={true}
-          >
-            {relatedProducts.map((prod, index) => (
-              <SwiperSlide key={index}>
-                <Link href={`/user/details/${prod.productID}`}>
+          <div id="content-2" className="grid">
+            {relatedProducts.length > 0 ? (
+              relatedProducts.map((prod, index) => (
+                <Link key={index} href={`/user/details/${prod.productID}`}>
                   <div className="new">
-                    <span className="heart-icon1" onClick={(e) => { e.preventDefault(); toggleFavourite(prod); }}>
+                    <span
+                      className="heart-icon1"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        toggleFavourite(prod);
+                      }}
+                    >
                       <Image
                         src={
                           isClient && favouriteProducts.some((fav) => fav.productID === prod.productID)
@@ -284,23 +284,36 @@ export default function Details() {
                             : "/images/heart.png"
                         }
                         alt="heart"
-                        width={20}
-                        height={20}
+                        width={23}
+                        height={23}
                       />
                     </span>
                     <Image
-                      src={prod.images.find((img) => img.is_main === 1)?.imageURL || prod.images[0]?.imageURL || "/images/addImage.png"}
-                      alt={prod.product_name}
+                      src={
+                        prod.images.find((img) => img.is_main === 1)?.imageURL ||
+                        prod.images[0]?.imageURL ||
+                        "/images/addImage.png"
+                      }
+                      alt={prod.product_name || "Hình ảnh sản phẩm"}
                       width={250}
-                      height={230}
+                      height={250}
                     />
-                    <p className="text">{prod.product_name}</p>
-                    <p>{(prod.materials && prod.materials.length > 0 ? Math.min(...prod.materials.map((material: Material) => material.price)) : 0).toLocaleString("vi-VN")} ₫</p>
+                    <div className="product-info">
+                      <p className="product-name">{prod.product_name}</p>
+                      <p className="product-price">
+                        {(prod.materials && prod.materials.length > 0
+                          ? Math.min(...prod.materials.map((material: Material) => material.price))
+                          : 0
+                        ).toLocaleString("vi-VN")} ₫
+                      </p>
+                    </div>
                   </div>
                 </Link>
-              </SwiperSlide>
-            ))}
-          </Swiper>
+              ))
+            ) : (
+              <p>Không có sản phẩm liên quan.</p>
+            )}
+          </div>
         </div>
       </div>
     </Layout>
