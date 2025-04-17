@@ -246,8 +246,12 @@
 .menu {
   display: flex;
   justify-content: center;
-  gap: 40px;
+  gap: 20px;
   font-weight: 500;
+  position: relative;
+}
+
+.menu-item-wrapper {
   position: relative;
 }
 
@@ -265,33 +269,50 @@
   transition: transform 0.2s ease-in-out, color 0.3s ease-in-out;
 }
 
-.dropdown {
-  display: none;
-  position: absolute;
-  top: 100%;
+.dropdown-container {
+  display: none; 
+  position: fixed;
+  margin-top: 10px;
   left: 0;
+  width: 100%;
   background: white;
-  min-width: 200px;
   box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
-  padding: 10px 0;
-  z-index: 100;
-  border-radius: 5px;
+  z-index: 99;
+  padding: 20px 0;
+  opacity: 0;
+  transform: translateY(-10px);
+  transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
 }
 
-.dropdown a {
+.menu-item-wrapper:hover .dropdown-container {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.dropdown-content {
+  display: flex;
+  flex-wrap: wrap; 
+  gap: 15px; 
+  max-width: 1200px; 
+  margin: 0 auto; 
+  padding: 0 20px;
+}
+
+.dropdown-content a {
   display: block;
   padding: 10px 15px;
   color: black;
   text-decoration: none;
   font-size: 14px;
+  border-radius: 5px;
+  transition: background 0.3s ease-in-out;
+  flex: 1 1 200px; 
+  text-align: left; 
 }
 
-.dropdown a:hover {
+.dropdown-content a:hover {
   background: #f4f4f4;
-}
-
-.menu-item:hover .dropdown {
-  display: block;
 }
 
 .menu a:hover {
@@ -331,8 +352,6 @@
 .search-box input:focus {
   border-color: #a64ca6;
 }
-
-
 /* Chat */
 #chat {
   position: fixed;

@@ -2,7 +2,7 @@
 import Image from "next/image";
 import React, { ReactNode, useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import axios from "axios";
 import "./styleComponent.css";
 import io from "socket.io-client";
@@ -36,6 +36,17 @@ interface UserInfo {
   full_name: string;
   phone_number: string;
   role: "Khách hàng" | "Admin";
+  perID: number;
+}
+
+interface Category {
+  categoryID: number;
+  category_name: string;
+}
+
+interface Material {
+  materialID: number;
+  material_name: string;
 }
 
 const socket = io("http://localhost:4000");
@@ -44,6 +55,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showChat, setShowChat] = useState(false);
   const [currentChatUser, setCurrentChatUser] = useState<ChatUser | null>(null);
   const [newMessage, setNewMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const [isUserPanelOpen, setIsUserPanelOpen] = useState(false);
   const [favouriteProducts, setFavouriteProducts] = useState<Product[]>([]);
   const [isClient, setIsClient] = useState(false);
@@ -52,91 +64,156 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
   const [error, setError] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     setIsClient(true);
-    const storedFavourites = localStorage.getItem("favouriteProducts");
-    if (storedFavourites) {
-      setFavouriteProducts(JSON.parse(storedFavourites));
-    }
 
     const storedUserInfo = localStorage.getItem("userInfo");
     if (storedUserInfo) {
       const parsedUserInfo: UserInfo = JSON.parse(storedUserInfo);
       setUserInfo(parsedUserInfo);
       socket.emit("joinRoom", parsedUserInfo.full_name);
-    }
 
-    const storedChat = localStorage.getItem("userChat");
-    if (storedChat) {
-      setCurrentChatUser(JSON.parse(storedChat));
+      const userFavouritesKey = `favouriteProducts_${parsedUserInfo.perID}`;
+      const storedFavourites = localStorage.getItem(userFavouritesKey);
+      if (storedFavourites) {
+        setFavouriteProducts(JSON.parse(storedFavourites));
+      }
     }
   }, []);
 
   useEffect(() => {
-    if (isClient) {
-      localStorage.setItem("favouriteProducts", JSON.stringify(favouriteProducts));
+    if (isClient && userInfo) {
+      const userFavouritesKey = `favouriteProducts_${userInfo.perID}`;
+      localStorage.setItem(userFavouritesKey, JSON.stringify(favouriteProducts));
     }
-  }, [favouriteProducts, isClient]);
+  }, [favouriteProducts, isClient, userInfo]);
 
   useEffect(() => {
-    socket.on("receiveMessage", (data: { sender: string; text: string; userName: string }) => {
-      if (currentChatUser) {
+    axios
+      .get("http://localhost:4000/categories")
+      .then((response) => {
+        const data = response.data.data || response.data || [];
+        if (Array.isArray(data)) {
+          setCategories(data);
+        } else {
+          console.error("Dữ liệu danh mục không phải mảng:", data);
+          setCategories([]);
+        }
+      })
+      .catch((error) => {
+        console.error("Lỗi khi lấy danh mục:", error);
+        setCategories([]);
+      });
+
+    axios
+      .get("http://localhost:4000/materials")
+      .then((response) => {
+        const data = response.data.data || response.data || [];
+        if (Array.isArray(data)) {
+          setMaterials(data);
+        } else {
+          console.error("Dữ liệu chất liệu không phải mảng:", data);
+          setMaterials([]);
+        }
+      })
+      .catch((error) => {
+        console.error("Lỗi khi lấy chất liệu:", error);
+        setMaterials([]);
+      });
+  }, []);
+
+  useEffect(() => {
+    const handleReceiveMessage = (data: { sender: string; text: string; userName: string }) => {
+      console.log("User received message:", data);
+      if (currentChatUser && userInfo && data.userName === userInfo.full_name && data.sender !== "user") {
         const updatedChat = {
           ...currentChatUser,
           messages: [...currentChatUser.messages, { sender: data.sender, text: data.text }],
         };
         setCurrentChatUser(updatedChat);
-        localStorage.setItem("userChat", JSON.stringify(updatedChat));
+        const userChatKey = `chat_${userInfo.perID}`;
+        localStorage.setItem(userChatKey, JSON.stringify(updatedChat));
       }
-    });
+    };
+
+    socket.on("receiveMessage", handleReceiveMessage);
 
     return () => {
-      socket.off("receiveMessage");
+      socket.off("receiveMessage", handleReceiveMessage);
     };
-  }, [currentChatUser]);
+  }, [currentChatUser, userInfo]);
 
   const toggleChat = () => {
     if (!showChat && !currentChatUser && userInfo) {
-      // Nếu chat chưa mở và chưa có currentChatUser, khởi tạo chat
-      const userChat: ChatUser = {
-        name: "Admin",
-        messages: [
-          {
-            sender: "admin",
-            text: `Xin chào ${userInfo?.full_name}, bạn cần đội ngũ Jewelry tư vấn?`,
-          },
-        ],
-      };
-      setCurrentChatUser(userChat);
-      localStorage.setItem("userChat", JSON.stringify(userChat));
-      if (userInfo) {
-        socket.emit("joinRoom", userInfo.full_name);
+      const userChatKey = `chat_${userInfo.perID}`;
+      const storedChat = localStorage.getItem(userChatKey);
+      let userChat: ChatUser;
+      if (storedChat) {
+        userChat = JSON.parse(storedChat);
+      } else {
+        userChat = {
+          name: "Admin",
+          messages: [
+            {
+              sender: "admin",
+              text: `Xin chào ${userInfo.full_name}, bạn cần đội ngũ Jewelry tư vấn?`,
+            },
+          ],
+        };
+        localStorage.setItem(userChatKey, JSON.stringify(userChat));
       }
+      setCurrentChatUser(userChat);
+      socket.emit("joinRoom", userInfo.full_name);
     }
-    // Toggle trạng thái showChat (mở nếu đang đóng, đóng nếu đang mở)
     setShowChat((prev) => !prev);
   };
 
   const sendMessage = () => {
-    if (newMessage.trim() !== "" && currentChatUser && userInfo) {
-      const messageData = {
-        sender: "user",
-        text: newMessage,
-        userName: userInfo.full_name,
-        room: userInfo.full_name,
-      };
-      socket.emit("sendMessage", messageData);
-      setNewMessage("");
-    }
+    if (newMessage.trim() === "" || isSending || !currentChatUser || !userInfo) return;
+
+    console.log("User sending message:", newMessage);
+    setIsSending(true);
+    const messageData = {
+      sender: "user",
+      text: newMessage,
+      userName: userInfo.full_name,
+      room: userInfo.full_name,
+    };
+    socket.emit("sendMessage", messageData);
+
+    const updatedChat = {
+      ...currentChatUser,
+      messages: [...currentChatUser.messages, { sender: "user", text: newMessage }],
+    };
+    setCurrentChatUser(updatedChat);
+    const userChatKey = `chat_${userInfo.perID}`;
+    localStorage.setItem(userChatKey, JSON.stringify(updatedChat));
+
+    setNewMessage("");
+    setIsSending(false);
   };
 
   const handleLogout = () => {
     if (confirm("Bạn có chắc chắn muốn đăng xuất không?")) {
+      if (userInfo) {
+        const userChatKey = `chat_${userInfo.perID}`;
+        const userFavouritesKey = `favouriteProducts_${userInfo.perID}`;
+        localStorage.removeItem(userChatKey);
+        socket.emit("userLogout", userInfo.full_name);
+      }
       localStorage.removeItem("token");
       localStorage.removeItem("userInfo");
+      
       setUserInfo(null);
+      setFavouriteProducts([]);
+      setCurrentChatUser(null);
       setIsUserPanelOpen(false);
       router.push("/user/login");
     }
@@ -188,6 +265,36 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     router.push("/user/invoices");
   };
 
+  const groupedCategories = () => {
+    const mainCategories = categories.filter(
+      (cat) => !["Nhẫn nam", "Nhẫn nữ"].includes(cat.category_name)
+    );
+    const subCategories: { [key: string]: Category[] } = {
+      Nhẫn: categories.filter((cat) =>
+        ["Nhẫn nam", "Nhẫn nữ"].includes(cat.category_name)
+      ),
+    };
+    return { mainCategories, subCategories };
+  };
+
+  const { mainCategories, subCategories } = groupedCategories();
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (searchQuery.trim()) {
+      params.set("query", searchQuery);
+    } else {
+      params.delete("query");
+    }
+
+    let newUrl = pathname;
+    if (params.toString()) {
+      newUrl = `${pathname}?${params.toString()}`;
+    }
+
+    router.replace(newUrl, { scroll: false });
+  }, [searchQuery, pathname, router, searchParams]);
+
   if (!isClient) {
     return null;
   }
@@ -209,7 +316,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             <span>0364 554 001</span>
           </div>
           <div className="center">
-            <Image src="/images/logo.png" alt="logo" width={200} height={100} />
+            <Link href="/user/home">
+              <Image src="/images/logo.png" alt="Logo" width={200} height={100} />
+            </Link>
           </div>
           <div className="right">
             <span className="heart-icon">
@@ -306,52 +415,66 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div id="header">
           <nav className="menu">
             <div className="menu-item">
-              <a href="#">Nhẫn cầu hôn</a>
-              <div className="dropdown">
-                <a href="#">Nhẫn Kim Cương</a>
-                <a href="#">Nhẫn Đá Quý</a>
-                <a href="#">Nhẫn Vàng</a>
+              <Link href="/user/products">Tất cả </Link>
+            </div>
+            {mainCategories.map((categorie) => (
+              <div key={categorie.categoryID} className="menu-item-wrapper">
+                <div className="menu-item">
+                  <Link href={`/user/categorie/${categorie.categoryID}`}>
+                    {categorie.category_name}
+                  </Link>
+                </div>
+                <div className="dropdown-container">
+                  <div className="dropdown-content">
+                    {subCategories[categorie.category_name]?.length > 0 &&
+                      subCategories[categorie.category_name].map((subCat) => (
+                        <Link
+                          key={subCat.categoryID}
+                          href={`/user/categorie/${subCat.categoryID}`}
+                        >
+                          {subCat.category_name}
+                        </Link>
+                      ))}
+                    {materials.map((material) => (
+                      <Link
+                        key={material.materialID}
+                        href={`/user/categorie/${categorie.categoryID}?material=${material.materialID}`}
+                      >
+                        {`${categorie.category_name} ${material.material_name}`}
+                      </Link>
+                    ))}
+                    {categorie.category_name === "Kim Cương" && (
+                      <>
+                        <Link href={`/user/categorie/${categorie.categoryID}?type=natural`}>
+                          Kim Cương Tự Nhiên
+                        </Link>
+                        <Link href={`/user/categorie/${categorie.categoryID}?type=lab-grown`}>
+                          Kim Cương Nhân Tạo
+                        </Link>
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
             <div className="menu-item">
-              <a href="#">Nhẫn cưới</a>
-              <div className="dropdown">
-                <a href="#">Nhẫn Cặp</a>
-                <a href="#">Nhẫn Vàng Trắng</a>
-              </div>
-            </div>
-            <div className="menu-item">
-              <a href="#">Trang sức</a>
-              <div className="dropdown">
-                <a href="#">Bông Tai</a>
-                <a href="#">Dây Chuyền</a>
-                <a href="#">Lắc Tay</a>
-              </div>
-            </div>
-            <div className="menu-item">
-              <a href="#">Kim Cương</a>
-              <div className="dropdown">
-                <a href="#">Kim Cương Tự Nhiên</a>
-                <a href="#">Kim Cương Nhân Tạo</a>
-              </div>
-            </div>
-            <div className="menu-item">
-              <a href="#">Men’s</a>
-              <div className="dropdown">
-                <a href="#">Nhẫn Nam</a>
-                <a href="#">Dây Chuyền Nam</a>
-              </div>
-            </div>
-            <div className="menu-item">
-              <a href="#">Khuyến mãi</a>
-            </div>
-            <div className="menu-item">
-              <a href="#">Tin tức</a>
+              <Link href="/news">Tin tức</Link>
             </div>
           </nav>
           <div className="search-box">
-            <Image src="/images/search.png" alt="search" width={20} height={20} className="search-icon" />
-            <input type="text" placeholder="Tìm kiếm nhanh..." />
+            <Image
+              src="/images/search.png"
+              alt="search"
+              width={20}
+              height={20}
+              className="search-icon"
+            />
+            <input
+              type="text"
+              placeholder="Tìm kiếm nhanh..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
         </div>
       </div>
@@ -382,8 +505,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               placeholder="Nhập tin nhắn..."
+              disabled={isSending}
             />
-            <button onClick={sendMessage}>
+            <button onClick={sendMessage} disabled={isSending}>
               <Image src="/images/send.png" alt="send" width={20} height={20} />
             </button>
           </div>
