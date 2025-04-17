@@ -1,0 +1,280 @@
+
+  .banner-image {
+    width: 100%;
+    height: 100%;
+  }
+  .fine-section {
+    padding: 5px 20px ;
+    text-align: center;
+    margin-top: 40px;
+    margin-bottom: 30px;
+  }
+  .fine-title {
+    font-weight: 200;
+    font-size: 35px;
+    position: relative;
+    color:#a64ca6
+  }
+
+  .fine-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+  }
+  
+  .fine-image {
+    width: 200px;
+    height: 180px;
+  }
+  /* Lý do chọn trang sức lý tưởng Section */
+  .reasons-section {
+    padding: 5px 20px 20px;
+    background: #f8f3ef;
+    text-align: center;
+  }
+  
+  .section-title {
+    font-weight: 200;
+    font-size: 28px;
+    position: relative;
+    color:#555555
+  }
+  
+  .reasons-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+    color: #3f3a36;
+  }
+  
+  .reason-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+  }
+  
+  .reason-image {
+    width: 280px;
+    height: 280px;
+  }
+  
+  .reason-item p {
+    font-size: 16px;
+    margin-bottom: 10px;
+  }
+  
+  /* Hệ thống cửa hàng Section */
+  .store-system-section {
+    padding: 40px 20px;
+    background: #fff;
+  }
+  
+  .store-system-content {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .store-system-image {
+    flex: 1;
+  }
+  
+  .store-system-img {
+    width: 100%;
+    height: 600px;
+    object-fit: cover;
+    border-radius: 10px;
+  }
+  
+  .store-system-text {
+    flex: 1;
+    text-align: left;
+  }
+  
+  .store-system-text h3 {
+    font-size: 36px;
+    font-weight: 300;
+    color: #a64ca6;
+    margin-bottom: 10px;
+  }
+  
+  .store-system-text p {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 15px;
+  }
+  
+  .store-system-btn {
+    display: inline-block;
+    background: transparent;
+    border: 1px solid #a64ca6;
+    color: #a64ca6;
+    padding: 8px 20px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 15px;
+    transition: background 0.2s, color 0.2s;
+  }
+  
+  .store-system-btn:hover {
+    background: #a64ca6;
+    color: #fff;
+    border-color: #a64ca6;
+  }
+  
+  /* Tin mới nhất Section */
+
+  .news-content {
+    display: flex;
+    gap: 40px;
+    max-width: 1000px;
+    margin: 80px auto;
+    cursor: pointer;
+  }
+  
+  .news-featured {
+    flex: 1;
+  }
+  
+  .news-featured-image {
+    margin-bottom: 20px;
+  }
+  
+  .news-featured-img {
+    width: 100%;
+    height: 600px;
+    border-radius: 10px;
+  }
+  
+  .news-featured-text {
+    text-align: left;
+  }
+  
+  .news-category {
+    display: inline-block;
+    background: #a64ca6;
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 5px;
+    font-size: 14px;
+  }
+  
+  .news-featured-text h3 {
+    font-size: 20px;
+    font-weight: 300;
+    color: #a64ca6;
+    margin-bottom: 10px;
+  }
+  
+  .news-featured-text p {
+    font-size: 16px;
+    color: #666;
+  }
+  
+  .news-list {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .news-item {
+    display: flex;
+    margin-bottom: 20px;
+    gap:20px;
+    align-items: center;
+  }
+  
+  .news-item-image {
+    flex-shrink: 0;
+  }
+  
+  .news-item-img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    border-radius: 5px;
+  }
+  
+  .news-item-text {
+    flex: 1;
+  }
+
+  .news-date {
+    font-size: 14px;
+    color: #666;
+  }
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    .banner-slider {
+      height: 500px;
+    }
+  
+    .banner-content h1 {
+      font-size: 36px;
+    }
+  
+    .banner-btn {
+      padding: 10px 20px;
+      font-size: 16px;
+    }
+  
+    .jewelry-image-wrapper {
+      width: 150px;
+      height: 150px;
+    }
+  
+    .jewelry-option h3 {
+      font-size: 18px;
+    }
+  
+    .reason-image {
+      width: 120px;
+      height: 120px;
+    }
+  
+    .reason-item h3 {
+      font-size: 18px;
+    }
+  
+    .store-system-content {
+      flex-direction: column;
+      gap: 20px;
+    }
+  
+    .store-system-img {
+      height: 300px;
+    }
+  
+    .store-system-text h2 {
+      font-size: 28px;
+    }
+  
+    .store-system-btn {
+      padding: 10px 20px;
+      font-size: 14px;
+    }
+  
+    .news-content {
+      flex-direction: column;
+    }
+  
+    .news-featured-img {
+      height: 300px;
+    }
+  
+    .news-featured-text h3 {
+      font-size: 20px;
+    }
+  
+    .news-item-img {
+      width: 80px;
+      height: 80px;
+    }
+  }
