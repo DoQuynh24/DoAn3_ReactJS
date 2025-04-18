@@ -85,6 +85,18 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       if (storedFavourites) {
         setFavouriteProducts(JSON.parse(storedFavourites));
       }
+
+      const userChatKey = `chat_${parsedUserInfo.perID}`;
+      const storedChat = localStorage.getItem(userChatKey);
+      if (storedChat) {
+        try {
+          const parsedChat: ChatUser = JSON.parse(storedChat);
+          setCurrentChatUser(parsedChat);
+          console.log(`Restored chat from ${userChatKey}:`, parsedChat);
+        } catch (e) {
+          console.error(`Error parsing chat from ${userChatKey}:`, e);
+        }
+      }
     }
   }, []);
 
@@ -132,14 +144,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   useEffect(() => {
     const handleReceiveMessage = (data: { sender: string; text: string; userName: string }) => {
       console.log("User received message:", data);
-      if (currentChatUser && userInfo && data.userName === userInfo.full_name && data.sender !== "user") {
-        const updatedChat = {
-          ...currentChatUser,
-          messages: [...currentChatUser.messages, { sender: data.sender, text: data.text }],
-        };
+      if (userInfo && data.userName === userInfo.full_name && data.sender !== "user") {
+        const updatedChat = currentChatUser
+          ? {
+              ...currentChatUser,
+              messages: [...currentChatUser.messages, { sender: data.sender, text: data.text }],
+            }
+          : {
+              name: "Admin",
+              messages: [{ sender: data.sender, text: data.text }],
+            };
         setCurrentChatUser(updatedChat);
         const userChatKey = `chat_${userInfo.perID}`;
         localStorage.setItem(userChatKey, JSON.stringify(updatedChat));
+        console.log(`Saved chat to ${userChatKey}:`, updatedChat);
       }
     };
 
@@ -203,14 +221,11 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const handleLogout = () => {
     if (confirm("Bạn có chắc chắn muốn đăng xuất không?")) {
       if (userInfo) {
-        const userChatKey = `chat_${userInfo.perID}`;
-        const userFavouritesKey = `favouriteProducts_${userInfo.perID}`;
-        localStorage.removeItem(userChatKey);
+        console.log(`Logging out, removing localStorage: userInfo, token`);
         socket.emit("userLogout", userInfo.full_name);
       }
       localStorage.removeItem("token");
       localStorage.removeItem("userInfo");
-      
       setUserInfo(null);
       setFavouriteProducts([]);
       setCurrentChatUser(null);

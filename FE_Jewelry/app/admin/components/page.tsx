@@ -34,6 +34,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const [showChat, setShowChat] = useState(false);
   const [currentChatUser, setCurrentChatUser] = useState<ChatUser | null>(null);
   const [newMessage, setNewMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [activeTab, setActiveTab] = useState("/admin/home");
@@ -50,19 +51,25 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       } else {
         socket.emit("joinAdmin");
         console.log("Admin joined adminRoom");
+
+        const storedChats = localStorage.getItem("adminChats");
+        if (storedChats) {
+          try {
+            const chats: ChatUser[] = JSON.parse(storedChats);
+            setChatUsers(chats);
+            chats.forEach((chat: ChatUser) => {
+              socket.emit("joinRoom", chat.name);
+              console.log(`Admin rejoined room: ${chat.name}`);
+            });
+            console.log("Restored adminChats:", chats);
+          } catch (e) {
+            console.error("Error parsing adminChats:", e);
+            setChatUsers([]);
+          }
+        }
       }
     } else {
       router.push("/user/login");
-    }
-
-    const storedChats = localStorage.getItem("adminChats");
-    if (storedChats) {
-      const chats: ChatUser[] = JSON.parse(storedChats);
-      setChatUsers(chats);
-      chats.forEach((chat: ChatUser) => {
-        socket.emit("joinRoom", chat.name);
-        console.log(`Admin rejoined room: ${chat.name}`);
-      });
     }
   }, [router]);
 
@@ -71,36 +78,55 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [pathname]);
 
   useEffect(() => {
-    socket.on("receiveMessage", (data: { sender: string; text: string; userName: string }) => {
-      console.log("Admin received:", data);
-      const { sender, text, userName } = data;
-      setChatUsers((prev) => {
-        const existingUser = prev.find((u) => u.name === userName);
-        let updatedChats: ChatUser[];
-        if (existingUser) {
-          updatedChats = prev.map((u) =>
-            u.name === userName
-              ? { ...u, messages: [...u.messages, { sender, text }] }
-              : u
-          );
-        } else {
-          updatedChats = [...prev, { name: userName, messages: [{ sender, text }] }];
-          socket.emit("joinRoom", userName);
+    const handleReceiveMessage = (data: { sender: string; text: string; userName: string }) => {
+      console.log("Admin received message:", data);
+      if (data.sender === "user") {
+        setChatUsers((prev) => {
+          const existingUser = prev.find((u) => u.name === data.userName);
+          let updatedChats: ChatUser[];
+          if (existingUser) {
+            updatedChats = prev.map((u) =>
+              u.name === data.userName
+                ? { ...u, messages: [...u.messages, { sender: data.sender, text: data.text }] }
+                : u
+            );
+          } else {
+            updatedChats = [
+              ...prev,
+              { name: data.userName, messages: [{ sender: data.sender, text: data.text }] },
+            ];
+            socket.emit("joinRoom", data.userName);
+          }
+          localStorage.setItem("adminChats", JSON.stringify(updatedChats));
+          return updatedChats;
+        });
+
+        if (currentChatUser && currentChatUser.name === data.userName) {
+          setCurrentChatUser((prev) => ({
+            ...prev!,
+            messages: [...prev!.messages, { sender: data.sender, text: data.text }],
+          }));
         }
+      }
+    };
+
+    const handleUserLogout = (userName: string) => {
+      setChatUsers((prev) => {
+        const updatedChats = prev.filter((u) => u.name !== userName);
         localStorage.setItem("adminChats", JSON.stringify(updatedChats));
         return updatedChats;
       });
-
       if (currentChatUser && currentChatUser.name === userName) {
-        setCurrentChatUser((prev) => ({
-          ...prev!,
-          messages: [...prev!.messages, { sender, text }],
-        }));
+        setCurrentChatUser(null);
       }
-    });
+    };
+
+    socket.on("receiveMessage", handleReceiveMessage);
+    socket.on("userLogout", handleUserLogout);
 
     return () => {
-      socket.off("receiveMessage");
+      socket.off("receiveMessage", handleReceiveMessage);
+      socket.off("userLogout", handleUserLogout);
     };
   }, [currentChatUser]);
 
@@ -111,16 +137,34 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   };
 
   const sendMessage = () => {
-    if (newMessage.trim() !== "" && currentChatUser) {
-      const messageData = {
-        sender: "admin",
-        text: newMessage,
-        userName: currentChatUser.name,
-        room: currentChatUser.name,
-      };
-      socket.emit("sendMessage", messageData);
-      setNewMessage("");
-    }
+    if (newMessage.trim() === "" || isSending || !currentChatUser) return;
+
+    console.log("Admin sending message:", newMessage);
+    setIsSending(true);
+    const messageData = {
+      sender: "admin",
+      text: newMessage,
+      userName: currentChatUser.name,
+      room: currentChatUser.name,
+    };
+    socket.emit("sendMessage", messageData);
+
+    setChatUsers((prev) => {
+      const updatedChats = prev.map((u) =>
+        u.name === currentChatUser.name
+          ? { ...u, messages: [...u.messages, { sender: "admin", text: newMessage }] }
+          : u
+      );
+      localStorage.setItem("adminChats", JSON.stringify(updatedChats));
+      return updatedChats;
+    });
+    setCurrentChatUser((prev) => ({
+      ...prev!,
+      messages: [...prev!.messages, { sender: "admin", text: newMessage }],
+    }));
+
+    setNewMessage("");
+    setIsSending(false);
   };
 
   const handleNavigation = (path: string) => {
@@ -130,9 +174,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
   const handleLogout = () => {
     if (confirm("Bạn có chắc chắn muốn đăng xuất không?")) {
+      console.log("Logging out, removing localStorage: userInfo, token");
       localStorage.removeItem("token");
       localStorage.removeItem("userInfo");
       setUserInfo(null);
+      setChatUsers([]);
+      setCurrentChatUser(null);
       router.push("/user/login");
     }
   };
@@ -206,9 +253,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               </>
             ) : (
               <ul>
-              <li style={{ fontSize: "28px" }}>Jewelry</li>
-              <li style={{ fontSize: "13px"}}>Natural Diamond Jewelry</li>
-            </ul>
+                <li style={{ fontSize: "28px" }}>Jewelry</li>
+                <li style={{ fontSize: "13px" }}>Natural Diamond Jewelry</li>
+              </ul>
             )}
             <button onClick={() => setShowChat(false)}>✖</button>
           </div>
@@ -239,8 +286,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
                 placeholder="Nhập tin nhắn..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
+                disabled={isSending}
               />
-              <button onClick={sendMessage}>
+              <button onClick={sendMessage} disabled={isSending}>
                 <Image src="/images/send.png" alt="send" width={20} height={20} />
               </button>
             </div>

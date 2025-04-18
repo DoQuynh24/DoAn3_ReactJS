@@ -41,11 +41,6 @@ io.on("connection", (socket) => {
 
     // Gửi tin nhắn đến phòng của user
     io.to(room).emit("receiveMessage", { sender, text, userName });
-
-    // Nếu sender là user, gửi tin nhắn đến phòng admin
-    if (sender === "user") {
-      io.to(ADMIN_ROOM).emit("receiveMessage", { sender, text, userName });
-    }
   });
 
   socket.on("disconnect", () => {
