@@ -430,60 +430,102 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         <div id="header">
           <nav className="menu">
             <div className="menu-item">
-              <Link href="/user/products">Tất cả </Link>
+              <Link href="/user/products" className={pathname === "/user/products" ? "active" : ""}>
+                Tất cả
+              </Link>
             </div>
             {mainCategories.map((categorie) => (
               <div key={categorie.categoryID} className="menu-item-wrapper">
                 <div className="menu-item">
-                  <Link href={`/user/categorie/${categorie.categoryID}`}>
+                  <Link
+                    href={`/user/categorie/${categorie.categoryID}`}
+                    className={pathname === `/user/categorie/${categorie.categoryID}` ? "active" : ""}
+                  >
                     {categorie.category_name}
                   </Link>
                 </div>
-                <div className="dropdown-container">
-                  <div className="dropdown-content">
-                    {subCategories[categorie.category_name]?.length > 0 &&
-                      subCategories[categorie.category_name].map((subCat) => (
-                        <Link
-                          key={subCat.categoryID}
-                          href={`/user/categorie/${subCat.categoryID}`}
-                        >
-                          {subCat.category_name}
-                        </Link>
-                      ))}
-                    {materials.map((material) => (
-                      <Link
-                        key={material.materialID}
-                        href={`/user/categorie/${categorie.categoryID}?material=${material.materialID}`}
-                      >
-                        {`${categorie.category_name} ${material.material_name}`}
-                      </Link>
-                    ))}
-                    {categorie.category_name === "Kim Cương" && (
-                      <>
-                        <Link href={`/user/categorie/${categorie.categoryID}?type=natural`}>
-                          Kim Cương Tự Nhiên
-                        </Link>
-                        <Link href={`/user/categorie/${categorie.categoryID}?type=lab-grown`}>
-                          Kim Cương Nhân Tạo
-                        </Link>
-                      </>
-                    )}
+                {categorie.category_name !== "Kim cương" && (
+                  <div className="dropdown-container">
+                    <div className="dropdown-content">
+                      <div className="dropdown-columns">
+                        {subCategories[categorie.category_name]?.length > 0 && (
+                          <div className="dropdown-column">
+                            <h4>{categorie.category_name}</h4>
+                            {subCategories[categorie.category_name].map((subCat) => (
+                              <Link
+                                key={subCat.categoryID}
+                                href={`/user/categorie/${subCat.categoryID}`}
+                                className={pathname === `/user/categorie/${subCat.categoryID}` ? "active" : ""}
+                              >
+                                {subCat.category_name}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                        {materials.length > 0 && (
+                          <div className="dropdown-column">
+                            <h4>Chất liệu</h4>
+                            {materials.map((material) => (
+                              <Link
+                                key={material.materialID}
+                                href={`/user/categorie/${categorie.categoryID}?material=${material.materialID}`}
+                                className={
+                                  pathname === `/user/categorie/${categorie.categoryID}` &&
+                                  searchParams.get("material") === String(material.materialID)
+                                    ? "active"
+                                    : ""
+                                }
+                              >
+                                {`${categorie.category_name} ${material.material_name}`}
+                              </Link>
+                            ))}
+                          </div>
+                        )}
+                        <div className="dropdown-column">
+                          <h4>Phong cách</h4>
+                          {[
+                            "Halo",
+                            "Cặp",
+                            "Solitaire",
+                            "Cathedral",
+                            "Trellis,Solitaire",
+                            "Thiết kế Jewelry",
+                          ].map((style) => (
+                            <Link
+                              key={style}
+                              href={`/user/categorie/${categorie.categoryID}?style=${style.toLowerCase()}`}
+                              className={
+                                pathname === `/user/categorie/${categorie.categoryID}` &&
+                                searchParams.get("style") === style.toLowerCase()
+                                  ? "active"
+                                  : ""
+                              }
+                            >
+                              {style}
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="dropdown-image-column">
+                        <img
+                          src="/images/header1.png"
+                          alt="Featured Rings"
+                          className="dropdown-image"
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             ))}
             <div className="menu-item">
-              <Link href="/news">Tin tức</Link>
+              <Link href="/news" className={pathname === "/news" ? "active" : ""}>
+                Tin tức
+              </Link>
             </div>
           </nav>
           <div className="search-box">
-            <Image
-              src="/images/search.png"
-              alt="search"
-              width={20}
-              height={20}
-              className="search-icon"
-            />
+            <Image src="/images/search.png" alt="search" width={20} height={20} className="search-icon" />
             <input
               type="text"
               placeholder="Tìm kiếm nhanh..."
