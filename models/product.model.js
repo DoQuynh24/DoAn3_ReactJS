@@ -7,8 +7,6 @@ const Product = function (product) {
   this.style = product.style;
   this.stock = product.stock;
   this.description = product.description;
-  this.created_at = product.created_at;
-  this.updated_at = product.updated_at;
 };
 
 Product.getById = (productID, callback) => {
@@ -42,7 +40,10 @@ Product.getById = (productID, callback) => {
   `;
 
   db.query(sqlString, [productID], (err, result) => {
-    if (err) return callback(err, null);
+    if (err) {
+      console.error("Lỗi khi lấy sản phẩm theo ID:", err);
+      return callback(err, null);
+    }
     if (result.length === 0) return callback(null, null);
 
     const product = {
@@ -95,7 +96,10 @@ Product.getAll = (callback) => {
   `;
 
   db.query(sqlString, (err, result) => {
-    if (err) return callback(err, null);
+    if (err) {
+      console.error("Lỗi khi lấy tất cả sản phẩm:", err);
+      return callback(err, null);
+    }
 
     const products = result.map((row) => ({
       productID: row.productID,
@@ -118,7 +122,14 @@ Product.getAll = (callback) => {
 };
 
 Product.insert = (product, materials, images, callback) => {
-  // Bắt đầu transaction
+  // Validation cơ bản
+  if (!product.product_name || !product.categoryID || product.stock === undefined || !product.description) {
+    console.error("Validation failed: Thiếu thông tin bắt buộc");
+    return callback(new Error("Thiếu thông tin bắt buộc: product_name, categoryID, stock, hoặc description"), null);
+  }
+
+  console.log("Bắt đầu thêm sản phẩm:", product);
+
   db.beginTransaction((err) => {
     if (err) {
       console.error("Lỗi khi bắt đầu transaction:", err);
@@ -128,105 +139,142 @@ Product.insert = (product, materials, images, callback) => {
     // Thêm sản phẩm vào bảng product
     const sqlString = `
       INSERT INTO product (product_name, categoryID, style, stock, description) 
-      VALUES (?, ?, ?, ?, ?)`;
+      VALUES (?, ?, ?, ?, ?)
+    `;
+    console.log("Thực hiện INSERT vào bảng product:", sqlString);
+    console.log("Dữ liệu:", [product.product_name, product.categoryID, product.style || null, product.stock, product.description]);
+
     db.query(
       sqlString,
-      [product.product_name, product.categoryID, product.style, product.stock, product.description],
+      [product.product_name, product.categoryID, product.style || null, product.stock, product.description],
       (err, res) => {
         if (err) {
           console.error("Lỗi khi chèn sản phẩm:", err);
-          return db.rollback(() => callback(err, null));
+          return db.rollback(() => callback(new Error("Lỗi khi chèn sản phẩm: " + err.message), null));
         }
 
-        // Truy vấn lại để lấy productID
+        console.log("Kết quả INSERT vào product:", res);
+
+        // Vì productID được sinh bởi trigger và là VARCHAR, không sử dụng res.insertId
+        // Thay vào đó, truy vấn để lấy productID vừa chèn
         const sqlGetProductID = `
           SELECT productID 
           FROM product 
-          WHERE product_name = ? AND categoryID = ? AND style = ? AND stock = ? AND description = ?
-          ORDER BY productID DESC LIMIT 1`;
+          WHERE product_name = ? 
+            AND categoryID = ? 
+            AND (style = ? OR (style IS NULL AND ? IS NULL)) 
+            AND stock = ? 
+            AND description = ?
+          ORDER BY productID DESC
+          LIMIT 1
+        `;
         db.query(
           sqlGetProductID,
-          [product.product_name, product.categoryID, product.style, product.stock, product.description],
-          (errGet, resultGet) => {
-            if (errGet) {
-              console.error("Lỗi khi lấy productID:", errGet);
-              return db.rollback(() => callback(errGet, null));
+          [product.product_name, product.categoryID, product.style || null, product.style || null, product.stock, product.description],
+          (err2, result) => {
+            if (err2) {
+              console.error("Lỗi khi lấy productID:", err2);
+              return db.rollback(() => callback(new Error("Lỗi khi lấy productID: " + err2.message), null));
             }
-            if (!resultGet || resultGet.length === 0) {
-              console.error("Không tìm thấy sản phẩm vừa thêm:", product);
-              return db.rollback(() => callback(new Error("Không tìm thấy sản phẩm vừa thêm"), null));
+            if (!result || result.length === 0) {
+              console.error("Không tìm thấy productID vừa chèn");
+              return db.rollback(() => callback(new Error("Không tìm thấy productID vừa chèn"), null));
             }
 
-            const productID = resultGet[0].productID;
+            const productID = result[0].productID;
+            console.log("productID vừa chèn:", productID);
 
-            // Thêm dữ liệu vào bảng productMaterial (nếu có materials)
+            // Thêm materials nếu có
             if (materials && materials.length > 0) {
-              const materialValues = materials.map((m) => [productID, m.materialID, m.price]);
+              const materialValues = materials.map((m) => [
+                productID,
+                m.materialID,
+                m.price !== undefined ? m.price : 0,
+              ]);
               const sqlMaterial = "INSERT INTO productMaterial (productID, materialID, price) VALUES ?";
-              db.query(sqlMaterial, [materialValues], (err2) => {
-                if (err2) {
-                  console.error("Lỗi khi chèn chất liệu:", err2);
-                  return db.rollback(() => callback(err2, null));
+              console.log("Thực hiện INSERT vào bảng productMaterial:", sqlMaterial);
+              console.log("Dữ liệu materials:", materialValues);
+
+              db.query(sqlMaterial, [materialValues], (err3) => {
+                if (err3) {
+                  console.error("Lỗi khi chèn chất liệu:", err3);
+                  return db.rollback(() => callback(new Error("Lỗi khi chèn chất liệu: " + err3.message), null));
                 }
 
-                // Thêm dữ liệu vào bảng productImage (nếu có ảnh)
+                console.log("Thêm chất liệu thành công");
+
+                // Thêm images nếu có
                 if (images && images.length > 0) {
-                  console.log("Ảnh sẽ được thêm:", images); // Log để kiểm tra
-                  const imageValues = images.map((img) => [productID, img.imageURL, img.is_main]);
+                  const imageValues = images.map((img) => [productID, img.imageURL, img.is_main ? 1 : 0]);
                   const sqlImage = "INSERT INTO productImage (productID, imageURL, is_main) VALUES ?";
-                  db.query(sqlImage, [imageValues], (err3) => {
-                    if (err3) {
-                      console.error("Lỗi khi chèn ảnh:", err3);
-                      return db.rollback(() => callback(err3, null));
+                  console.log("Thực hiện INSERT vào bảng productImage:", sqlImage);
+                  console.log("Dữ liệu images:", imageValues);
+
+                  db.query(sqlImage, [imageValues], (err4) => {
+                    if (err4) {
+                      console.error("Lỗi khi chèn ảnh:", err4);
+                      return db.rollback(() => callback(new Error("Lỗi khi chèn ảnh: " + err4.message), null));
                     }
 
-                    // Commit transaction nếu tất cả thành công
-                    db.commit((err4) => {
-                      if (err4) {
-                        console.error("Lỗi khi commit transaction:", err4);
-                        return db.rollback(() => callback(err4, null));
+                    console.log("Thêm ảnh thành công");
+
+                    // Commit transaction
+                    db.commit((err5) => {
+                      if (err5) {
+                        console.error("Lỗi khi commit transaction:", err5);
+                        return db.rollback(() => callback(new Error("Lỗi khi commit transaction: " + err5.message), null));
                       }
-                      callback(null, { productID });
+                      console.log("Commit transaction thành công");
+                      callback(null, { productID, message: "Thêm sản phẩm thành công" });
                     });
                   });
                 } else {
-                  // Commit transaction nếu không có ảnh
+                  // Commit transaction nếu không có images
                   db.commit((err4) => {
                     if (err4) {
                       console.error("Lỗi khi commit transaction:", err4);
-                      return db.rollback(() => callback(err4, null));
+                      return db.rollback(() => callback(new Error("Lỗi khi commit transaction: " + err4.message), null));
                     }
-                    callback(null, { productID });
+                    console.log("Commit transaction thành công (không có images)");
+                    callback(null, { productID, message: "Thêm sản phẩm thành công" });
                   });
                 }
               });
             } else {
-              // Commit transaction nếu không có materials
+              // Thêm images nếu có, nhưng không có materials
               if (images && images.length > 0) {
-                console.log("Ảnh sẽ được thêm:", images); // Log để kiểm tra
-                const imageValues = images.map((img) => [productID, img.imageURL, img.is_main]);
+                const imageValues = images.map((img) => [productID, img.imageURL, img.is_main ? 1 : 0]);
                 const sqlImage = "INSERT INTO productImage (productID, imageURL, is_main) VALUES ?";
+                console.log("Thực hiện INSERT vào bảng productImage:", sqlImage);
+                console.log("Dữ liệu images:", imageValues);
+
                 db.query(sqlImage, [imageValues], (err3) => {
                   if (err3) {
                     console.error("Lỗi khi chèn ảnh:", err3);
-                    return db.rollback(() => callback(err3, null));
+                    return db.rollback(() => callback(new Error("Lỗi khi chèn ảnh: " + err3.message), null));
                   }
 
+                  console.log("Thêm ảnh thành công");
+
+                  // Commit transaction
                   db.commit((err4) => {
                     if (err4) {
                       console.error("Lỗi khi commit transaction:", err4);
-                      return db.rollback(() => callback(err4, null));
+                      return db.rollback(() => callback(new Error("Lỗi khi commit transaction: " + err4.message), null));
                     }
-                    callback(null, { productID });
+                    console.log("Commit transaction thành công (không có materials)");
+                    callback(null, { productID, message: "Thêm sản phẩm thành công" });
                   });
                 });
               } else {
+                // Commit transaction nếu không có materials và images
                 db.commit((err4) => {
                   if (err4) {
                     console.error("Lỗi khi commit transaction:", err4);
-                    return db.rollback(() => callback(err4, null));
+                    return db.rollback(() => callback(new Error("Lỗi khi commit transaction: " + err4.message), null));
                   }
-                  callback(null, { productID });
+                  console.log("Commit transaction thành công (không có materials và images)");
+                  callback(null, { productID, message: "Thêm sản phẩm thành công" });
                 });
               }
             }
@@ -237,49 +285,197 @@ Product.insert = (product, materials, images, callback) => {
   });
 };
 
-Product.update = (productID, product, materials, callback) => {
-  const sqlUpdateProduct = "UPDATE product SET ? WHERE productID = ?";
-  db.query(sqlUpdateProduct, [product, productID], (err, res) => {
-    if (err) return callback(err, null);
-    if (res.affectedRows === 0) {
-      return callback(null, { message: "Không tìm thấy sản phẩm để cập nhật", success: false });
+Product.update = (productID, product, materials, images, callback) => {
+  db.beginTransaction((err) => {
+    if (err) {
+      console.error("Lỗi khi bắt đầu giao dịch:", err);
+      return callback(new Error("Lỗi khi bắt đầu giao dịch: " + err.message), null);
     }
 
-    // Xóa chất liệu cũ
-    const sqlDeleteMaterials = "DELETE FROM productMaterial WHERE productID = ?";
-    db.query(sqlDeleteMaterials, [productID], (err2) => {
-      if (err2) return callback(err2, null);
+    // Kiểm tra dữ liệu sản phẩm, chỉ bắt buộc product_name
+    if (!product.product_name) {
+      console.error("Thiếu thông tin bắt buộc: product_name");
+      return db.rollback(() => callback(new Error("Thiếu thông tin bắt buộc: product_name"), null));
+    }
 
-      // Thêm chất liệu mới (nếu có)
-      if (materials && materials.length > 0) {
-        const values = materials.map((m) => [productID, m.materialID, m.price]);
-        const sqlInsertMaterials = "INSERT INTO productMaterial (productID, materialID, price) VALUES ?";
-        db.query(sqlInsertMaterials, [values], (err3) => {
-          if (err3) return callback(err3, null);
-          callback(null, { message: "Cập nhật sản phẩm và chất liệu thành công", success: true });
-        });
-      } else {
-        callback(null, { message: "Cập nhật sản phẩm thành công", success: true });
+    // Lấy thông tin sản phẩm hiện tại để giữ giá trị cũ cho các trường không được cung cấp
+    const sqlGetCurrent = "SELECT * FROM product WHERE productID = ?";
+    db.query(sqlGetCurrent, [productID], (err, currentProduct) => {
+      if (err) {
+        console.error("Lỗi khi lấy sản phẩm hiện tại:", err);
+        return db.rollback(() => callback(new Error("Lỗi khi lấy sản phẩm hiện tại: " + err.message), null));
       }
+      if (currentProduct.length === 0) {
+        return db.rollback(() => callback(null, { message: "Không tìm thấy sản phẩm để cập nhật", success: false }));
+      }
+
+      // Gộp dữ liệu mới với dữ liệu cũ
+      const current = currentProduct[0];
+      const updateFields = {
+        product_name: product.product_name,
+        categoryID: product.categoryID !== undefined ? product.categoryID : current.categoryID,
+        style: product.style !== undefined ? product.style : current.style,
+        stock: product.stock !== undefined ? product.stock : current.stock,
+        description: product.description !== undefined ? product.description : current.description
+      };
+
+      // Câu lệnh SQL cập nhật chỉ các trường được cung cấp hoặc giữ nguyên giá trị cũ
+      const sqlUpdateProduct = `
+        UPDATE product 
+        SET product_name = ?, categoryID = ?, style = ?, stock = ?, description = ?
+        WHERE productID = ?
+      `;
+      db.query(
+        sqlUpdateProduct,
+        [
+          updateFields.product_name,
+          updateFields.categoryID,
+          updateFields.style,
+          updateFields.stock,
+          updateFields.description,
+          productID
+        ],
+        (err, res) => {
+          if (err) {
+            console.error("Lỗi khi cập nhật sản phẩm:", err);
+            return db.rollback(() => callback(new Error("Lỗi khi cập nhật sản phẩm: " + err.message), null));
+          }
+          if (res.affectedRows === 0) {
+            return db.rollback(() =>
+              callback(null, { message: "Không tìm thấy sản phẩm để cập nhật", success: false })
+            );
+          }
+
+          // Xử lý chất liệu
+          const sqlDeleteMaterials = "DELETE FROM productMaterial WHERE productID = ?";
+          db.query(sqlDeleteMaterials, [productID], (err2) => {
+            if (err2) {
+              console.error("Lỗi khi xóa chất liệu cũ:", err2);
+              return db.rollback(() => callback(new Error("Lỗi khi xóa chất liệu cũ: " + err2.message), null));
+            }
+
+            if (materials && materials.length > 0) {
+              const values = materials.map((m) => [
+                productID,
+                m.materialID,
+                m.price !== undefined ? m.price : 0
+              ]);
+              const sqlInsertMaterials = "INSERT INTO productMaterial (productID, materialID, price) VALUES ?";
+              db.query(sqlInsertMaterials, [values], (err3) => {
+                if (err3) {
+                  console.error("Lỗi khi chèn chất liệu mới:", err3);
+                  return db.rollback(() => callback(new Error("Lỗi khi chèn chất liệu mới: " + err3.message), null));
+                }
+
+                // Xử lý ảnh
+                const sqlDeleteImages = "DELETE FROM productImage WHERE productID = ?";
+                db.query(sqlDeleteImages, [productID], (err4) => {
+                  if (err4) {
+                    console.error("Lỗi khi xóa ảnh cũ:", err4);
+                    return db.rollback(() => callback(new Error("Lỗi khi xóa ảnh cũ: " + err4.message), null));
+                  }
+
+                  if (images && images.length > 0) {
+                    const imageValues = images.map((img) => [
+                      productID,
+                      img.imageURL,
+                      img.is_main ? 1 : 0
+                    ]);
+                    const sqlInsertImages = "INSERT INTO productImage (productID, imageURL, is_main) VALUES ?";
+                    db.query(sqlInsertImages, [imageValues], (err5) => {
+                      if (err5) {
+                        console.error("Lỗi khi chèn ảnh mới:", err5);
+                        return db.rollback(() => callback(new Error("Lỗi khi chèn ảnh mới: " + err5.message), null));
+                      }
+
+                      db.commit((err6) => {
+                        if (err6) {
+                          console.error("Lỗi khi xác nhận giao dịch:", err6);
+                          return db.rollback(() => callback(new Error("Lỗi khi xác nhận giao dịch: " + err6.message), null));
+                        }
+                        callback(null, { message: "Cập nhật sản phẩm thành công", success: true });
+                      });
+                    });
+                  } else {
+                    db.commit((err5) => {
+                      if (err5) {
+                        console.error("Lỗi khi xác nhận giao dịch:", err5);
+                        return db.rollback(() => callback(new Error("Lỗi khi xác nhận giao dịch: " + err5.message), null));
+                      }
+                      callback(null, { message: "Cập nhật sản phẩm thành công", success: true });
+                    });
+                  }
+                });
+              });
+            } else {
+              // Xử lý ảnh khi không có chất liệu
+              const sqlDeleteImages = "DELETE FROM productImage WHERE productID = ?";
+              db.query(sqlDeleteImages, [productID], (err4) => {
+                if (err4) {
+                  console.error("Lỗi khi xóa ảnh cũ:", err4);
+                  return db.rollback(() => callback(new Error("Lỗi khi xóa ảnh cũ: " + err4.message), null));
+                }
+
+                if (images && images.length > 0) {
+                  const imageValues = images.map((img) => [
+                    productID,
+                    img.imageURL,
+                    img.is_main ? 1 : 0
+                  ]);
+                  const sqlInsertImages = "INSERT INTO productImage (productID, imageURL, is_main) VALUES ?";
+                  db.query(sqlInsertImages, [imageValues], (err5) => {
+                    if (err5) {
+                      console.error("Lỗi khi chèn ảnh mới:", err5);
+                      return db.rollback(() => callback(new Error("Lỗi khi chèn ảnh mới: " + err5.message), null));
+                    }
+
+                    db.commit((err6) => {
+                      if (err6) {
+                        console.error("Lỗi khi xác nhận giao dịch:", err6);
+                        return db.rollback(() => callback(new Error("Lỗi khi xác nhận giao dịch: " + err6.message), null));
+                      }
+                      callback(null, { message: "Cập nhật sản phẩm thành công", success: true });
+                    });
+                  });
+                } else {
+                  db.commit((err5) => {
+                    if (err5) {
+                      console.error("Lỗi khi xác nhận giao dịch:", err5);
+                      return db.rollback(() => callback(new Error("Lỗi khi xác nhận giao dịch: " + err5.message), null));
+                    }
+                    callback(null, { message: "Cập nhật sản phẩm thành công", success: true });
+                  });
+                }
+              });
+            }
+          });
+        }
+      );
     });
   });
 };
 
 Product.delete = (productID, callback) => {
-  // Xóa ảnh trước
   const sqlDeleteImages = "DELETE FROM productImage WHERE productID IN (?)";
   db.query(sqlDeleteImages, [productID], (err) => {
-    if (err) return callback(err, null);
+    if (err) {
+      console.error("Lỗi khi xóa ảnh:", err);
+      return callback(new Error("Lỗi khi xóa ảnh: " + err.message), null);
+    }
 
-    // Xóa chất liệu
     const sqlDeleteMaterials = "DELETE FROM productMaterial WHERE productID IN (?)";
     db.query(sqlDeleteMaterials, [productID], (err2) => {
-      if (err2) return callback(err2, null);
+      if (err2) {
+        console.error("Lỗi khi xóa chất liệu:", err2);
+        return callback(new Error("Lỗi khi xóa chất liệu: " + err2.message), null);
+      }
 
-      // Xóa sản phẩm
       const sqlDeleteProduct = "DELETE FROM product WHERE productID IN (?)";
       db.query(sqlDeleteProduct, [productID], (err3, res) => {
-        if (err3) return callback(err3, null);
+        if (err3) {
+          console.error("Lỗi khi xóa sản phẩm:", err3);
+          return callback(new Error("Lỗi khi xóa sản phẩm: " + err3.message), null);
+        }
         if (res.affectedRows === 0) {
           return callback(null, { message: "Không tìm thấy sản phẩm để xóa", success: false });
         }

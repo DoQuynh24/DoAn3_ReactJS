@@ -9,6 +9,8 @@ import Form from "react-bootstrap/Form";
 import Pagination from "react-bootstrap/Pagination";
 import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import "./styleProducts.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 
@@ -20,7 +22,7 @@ interface Category {
 interface Material {
   materialID: number;
   material_name?: string;
-  price: number;
+  price?: number;
 }
 
 interface Image {
@@ -46,10 +48,18 @@ export default function AdminProduct() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [selectedMaterial, setSelectedMaterial] = useState<number | null>(null);
-  const [selectedProducts, setSelectedProducts] = useState<string[]>([]); // Trạng thái để lưu danh sách sản phẩm được chọn
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [showModal, setShowModal] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showMaterialModal, setShowMaterialModal] = useState(false);
+  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
+  const [showEditMaterialModal, setShowEditMaterialModal] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    type: "category" | "material" | null;
+    id: number | null;
+    x: number;
+    y: number;
+  }>({ type: null, id: null, x: 0, y: 0 });
   const [currentProduct, setCurrentProduct] = useState<Product | null>(null);
   const [newProduct, setNewProduct] = useState<Product>({
     product_name: "",
@@ -61,7 +71,9 @@ export default function AdminProduct() {
     images: [],
   });
   const [newCategory, setNewCategory] = useState({ category_name: "" });
-  const [newMaterial, setNewMaterial] = useState({ material_name: "", price: 0 });
+  const [editCategory, setEditCategory] = useState<Category | null>(null);
+  const [newMaterial, setNewMaterial] = useState({ material_name: "" });
+  const [editMaterial, setEditMaterial] = useState<Material | null>(null);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [mainImageIndex, setMainImageIndex] = useState<number>(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -83,20 +95,21 @@ export default function AdminProduct() {
             images: product.images.map((img: Image) => ({
               ...img,
               imageURL: img.imageURL
-                ? img.imageURL.startsWith("/")
-                  ? `http://localhost:4000${img.imageURL}`
-                  : img.imageURL
+                ? img.imageURL.startsWith("http")
+                  ? img.imageURL.replace(
+                      /^http:\/\/localhost:4000\/images\/http:\/\/localhost:4000/,
+                      "http://localhost:4000"
+                    )
+                  : `http://localhost:4000${img.imageURL}`
                 : "/images/addImage.png",
             })),
           }));
           setProducts(formattedData);
         } else {
-          console.error("Dữ liệu sản phẩm không phải mảng:", data);
           setProducts([]);
         }
       })
       .catch((error) => {
-        console.error("Lỗi gọi API:", error);
         setProducts([]);
       });
   }, []);
@@ -109,12 +122,10 @@ export default function AdminProduct() {
         if (Array.isArray(data)) {
           setMaterials(data);
         } else {
-          console.error("Dữ liệu vật liệu không phải mảng:", data);
           setMaterials([]);
         }
       })
       .catch((error) => {
-        console.error("Lỗi gọi API vật liệu:", error);
         setMaterials([]);
       });
   }, []);
@@ -123,8 +134,32 @@ export default function AdminProduct() {
     axios
       .get("http://localhost:4000/categories")
       .then((response) => setCategories(response.data.data))
-      .catch((error) => console.error("Lỗi gọi API danh mục:", error));
+      .catch((error) => {});
   }, []);
+
+  const showSuccessToast = (message: string) => {
+    toast.success(message, {
+      position: "top-right",
+      autoClose: 3000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      theme: "colored",
+    });
+  };
+
+  const showErrorToast = (message: string) => {
+    toast.error(message, {
+      position: "top-right",
+      autoClose: 3000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: true,
+      draggable: true,
+      theme: "colored",
+    });
+  };
 
   const handleShowDetail = (product: Product) => {
     axios
@@ -133,22 +168,31 @@ export default function AdminProduct() {
         const detailedProduct = response.data.data;
         const formattedProduct = {
           ...detailedProduct,
-          images: detailedProduct.images.map((img: Image) => ({
-            ...img,
-            imageURL: img.imageURL
-              ? img.imageURL.startsWith("/")
-                ? `http://localhost:4000${img.imageURL}`
-                : img.imageURL
-              : "/images/default.png",
-          })),
+          images: detailedProduct.images
+            ? detailedProduct.images.map((img: Image) => ({
+                ...img,
+                imageURL: img.imageURL
+                  ? img.imageURL.startsWith("http")
+                    ? img.imageURL
+                    : `http://localhost:4000${img.imageURL}`
+                  : "/images/default.png",
+                is_main: img.is_main || 0,
+              }))
+            : [],
+          materials: detailedProduct.materials || [],
         };
         setCurrentProduct(formattedProduct);
-        setNewProduct(formattedProduct); // Set newProduct for editing
-        setImageFiles([]); // Reset image files for editing
-        setMainImageIndex(formattedProduct.images.findIndex((img: Image) => img.is_main === 1));
+        setNewProduct(formattedProduct);
+        setImageFiles([]);
+        const mainIndex = formattedProduct.images.findIndex(
+          (img: Image) => img.is_main === 1
+        );
+        setMainImageIndex(mainIndex >= 0 ? mainIndex : 0);
         setShowModal(true);
       })
-      .catch((error) => console.error("Lỗi khi lấy chi tiết sản phẩm:", error));
+      .catch((error) => {
+        showErrorToast("Lỗi khi lấy chi tiết sản phẩm!");
+      });
   };
 
   const handleShowAddProduct = () => {
@@ -173,13 +217,25 @@ export default function AdminProduct() {
     setShowCategoryModal(true);
   };
 
+  const handleShowEditCategory = (category: Category) => {
+    setEditCategory(category);
+    setShowEditCategoryModal(true);
+  };
+
   const handleShowAddMaterial = () => {
-    setNewMaterial({ material_name: "", price: 0 });
+    setNewMaterial({ material_name: "" });
     setShowMaterialModal(true);
   };
 
+  const handleShowEditMaterial = (material: Material) => {
+    setEditMaterial(material);
+    setShowEditMaterialModal(true);
+  };
+
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
   ) => {
     const { name, value } = e.target;
     setNewProduct((prev) => ({
@@ -195,7 +251,13 @@ export default function AdminProduct() {
   ) => {
     setNewProduct((prev) => {
       const updatedMaterials = prev.materials.map((mat, i) =>
-        i === index ? { ...mat, [field]: Number(value) } : mat
+        i === index
+          ? {
+              ...mat,
+              [field]:
+                field === "price" ? parseFloat(value as string) : Number(value),
+            }
+          : mat
       );
       return { ...prev, materials: updatedMaterials };
     });
@@ -229,7 +291,21 @@ export default function AdminProduct() {
         ...prev,
         images: prev.images.filter((_, i) => i !== index),
       }));
+      setMainImageIndex((prevIndex) => {
+        const totalImages = newProduct.images.length - 1;
+        if (prevIndex >= totalImages) {
+          return totalImages > 0 ? totalImages - 1 : 0;
+        }
+        return prevIndex;
+      });
     }
+  };
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("vi-VN", {
+      style: "currency",
+      currency: "VND",
+    }).format(price);
   };
 
   const handleAddProduct = () => {
@@ -240,17 +316,17 @@ export default function AdminProduct() {
       newProduct.stock === undefined ||
       !newProduct.description
     ) {
-      alert("Vui lòng nhập đầy đủ thông tin sản phẩm!");
+      showErrorToast("Vui lòng nhập đầy đủ thông tin sản phẩm!");
       return;
     }
 
     if (!Array.isArray(newProduct.materials) || newProduct.materials.length === 0) {
-      alert("Vui lòng thêm ít nhất một chất liệu!");
+      showErrorToast("Vui lòng thêm ít nhất một chất liệu!");
       return;
     }
 
     if (!categories.some((cat) => cat.categoryID === newProduct.categoryID)) {
-      alert("Danh mục không hợp lệ!");
+      showErrorToast("Danh mục không hợp lệ!");
       return;
     }
 
@@ -259,7 +335,7 @@ export default function AdminProduct() {
         materials.some((m) => m.materialID === mat.materialID)
       )
     ) {
-      alert("Chất liệu không hợp lệ!");
+      showErrorToast("Chất liệu không hợp lệ!");
       return;
     }
 
@@ -286,9 +362,9 @@ export default function AdminProduct() {
         const newImages = addedProduct.images.map((img: Image) => ({
           ...img,
           imageURL: img.imageURL
-            ? img.imageURL.startsWith("/")
-              ? `http://localhost:4000${img.imageURL}`
-              : `http://localhost:4000/images/${img.imageURL.split("/").pop()}`
+            ? img.imageURL.startsWith("http")
+              ? img.imageURL
+              : `http://localhost:4000${img.imageURL}`
             : "/images/default.png",
         }));
         setProducts((prev) => [
@@ -296,62 +372,237 @@ export default function AdminProduct() {
           { ...newProduct, productID: addedProduct.productID, images: newImages },
         ]);
         handleCloseModal();
+        showSuccessToast("Thêm sản phẩm thành công!");
       })
-      .catch((error) => console.error("Lỗi thêm sản phẩm:", error));
+      .catch((error) => {
+        showErrorToast("Lỗi khi thêm sản phẩm!");
+      });
   };
 
   const handleUpdateProduct = () => {
-    if (!currentProduct || !currentProduct.productID) return;
-
+    if (!currentProduct || !currentProduct.productID) {
+      showErrorToast("Không tìm thấy sản phẩm để cập nhật!");
+      return;
+    }
+    if (!newProduct.product_name) {
+      showErrorToast("Vui lòng nhập tên sản phẩm!");
+      return;
+    }
     const formData = new FormData();
     formData.append("productID", currentProduct.productID);
     formData.append("product_name", newProduct.product_name);
     formData.append("categoryID", newProduct.categoryID.toString());
-    formData.append("style", newProduct.style);
+    formData.append("style", newProduct.style || "");
     formData.append("stock", newProduct.stock.toString());
-    formData.append("description", newProduct.description);
+    formData.append("description", newProduct.description || "");
     formData.append("materials", JSON.stringify(newProduct.materials));
+
+    const normalizedImages = newProduct.images.map((img) => ({
+      ...img,
+      imageURL: img.imageURL.replace(/^http:\/\/localhost:4000/, ""),
+    }));
+    formData.append("existingImages", JSON.stringify(normalizedImages));
     imageFiles.forEach((file, index) => {
       formData.append("images", file);
     });
-    if (imageFiles.length > 0) {
-      formData.append("mainImageIndex", mainImageIndex.toString());
+
+    if (newProduct.images.length > 0 || imageFiles.length > 0) {
+      const totalImages = newProduct.images.length + imageFiles.length;
+      const validMainIndex = Math.min(mainImageIndex, totalImages - 1);
+      formData.append(
+        "mainImageIndex",
+        validMainIndex >= 0 ? validMainIndex.toString() : "0"
+      );
     }
 
     axios
-      .put("http://localhost:4000/products", formData, {
+      .put(`http://localhost:4000/products/${currentProduct.productID}`, formData, {
         headers: { "Content-Type": "multipart/form-data" },
       })
       .then((response) => {
         const updatedProduct = response.data.data;
+        const formattedUpdatedProduct = {
+          ...updatedProduct,
+          images: updatedProduct.images
+            ? updatedProduct.images.map((img: Image) => ({
+                ...img,
+                imageURL: img.imageURL
+                  ? img.imageURL.startsWith("http")
+                    ? img.imageURL.replace(
+                        /^http:\/\/localhost:4000\/images\/http:\/\/localhost:4000/,
+                        "http://localhost:4000"
+                      )
+                    : `http://localhost:4000${img.imageURL}`
+                  : "/images/default.png",
+                is_main: img.is_main || 0,
+              }))
+            : [],
+          materials: updatedProduct.materials || [],
+        };
         setProducts((prev) =>
           prev.map((p) =>
-            p.productID === updatedProduct.productID ? updatedProduct : p
+            p.productID === updatedProduct.productID ? formattedUpdatedProduct : p
           )
         );
+        setNewProduct(formattedUpdatedProduct);
+        setImageFiles([]);
+        const newMainIndex = formattedUpdatedProduct.images.findIndex(
+          (img: Image) => img.is_main === 1
+        );
+        setMainImageIndex(newMainIndex >= 0 ? newMainIndex : 0);
         handleCloseModal();
+        showSuccessToast("Cập nhật sản phẩm thành công!");
       })
-      .catch((error) => console.error("Lỗi cập nhật sản phẩm:", error));
+      .catch((error) => {
+        showErrorToast(
+          "Lỗi khi cập nhật sản phẩm: " +
+            (error.response?.data?.message || error.message)
+        );
+      });
   };
 
   const handleAddCategory = () => {
+    if (!newCategory.category_name) {
+      showErrorToast("Vui lòng nhập tên danh mục!");
+      return;
+    }
+
     axios
-      .post("http://localhost:4000/categories", newCategory)
+      .post("http://localhost:4000/categories/add", newCategory)
       .then((response) => {
-        setCategories((prev) => [...prev, response.data.data]);
-        setShowCategoryModal(false);
+        if (response.data.success) {
+          setCategories((prev) => [...prev, response.data.data]);
+          setShowCategoryModal(false);
+          showSuccessToast("Thêm danh mục thành công!");
+        } else {
+          showErrorToast("Thêm danh mục thất bại: " + response.data.message);
+        }
       })
-      .catch((error) => console.error("Lỗi thêm danh mục:", error));
+      .catch((error) => {
+        showErrorToast("Lỗi khi thêm danh mục!");
+      });
+  };
+
+  const handleEditCategory = () => {
+    if (!editCategory || !editCategory.categoryID || !editCategory.category_name) {
+      showErrorToast("Vui lòng nhập đầy đủ thông tin danh mục!");
+      return;
+    }
+
+    axios
+      .put("http://localhost:4000/categories", {
+        categoryID: editCategory.categoryID,
+        category_name: editCategory.category_name,
+      })
+      .then((response) => {
+        if (response.data.success) {
+          setCategories((prev) =>
+            prev.map((cat) =>
+              cat.categoryID === editCategory.categoryID ? editCategory : cat
+            )
+          );
+          setShowEditCategoryModal(false);
+          showSuccessToast("Cập nhật danh mục thành công!");
+        } else {
+          showErrorToast("Cập nhật danh mục thất bại: " + response.data.message);
+        }
+      })
+      .catch((error) => {
+        showErrorToast("Lỗi khi cập nhật danh mục!");
+      });
+  };
+
+  const handleDeleteCategory = (categoryID: number) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa danh mục này?")) return;
+
+    axios
+      .delete("http://localhost:4000/categories", { data: { categoryID } })
+      .then((response) => {
+        if (response.data.success) {
+          setCategories((prev) =>
+            prev.filter((cat) => cat.categoryID !== categoryID)
+          );
+          showSuccessToast("Xóa danh mục thành công!");
+        } else {
+          showErrorToast("Xóa danh mục thất bại: " + response.data.message);
+        }
+      })
+      .catch((error) => {
+        showErrorToast("Lỗi khi xóa danh mục!");
+      });
   };
 
   const handleAddNewMaterial = () => {
+    if (!newMaterial.material_name) {
+      showErrorToast("Vui lòng nhập đầy đủ tên chất liệu!");
+      return;
+    }
+
     axios
-      .post("http://localhost:4000/materials", newMaterial)
-      .then((response) => {
-        setMaterials((prev) => [...prev, response.data.data]);
-        setShowMaterialModal(false);
+      .post("http://localhost:4000/materials/add", {
+        material_name: newMaterial.material_name,
       })
-      .catch((error) => console.error("Lỗi thêm chất liệu:", error));
+      .then((response) => {
+        if (response.data.success) {
+          setMaterials((prev) => [...prev, response.data.data]);
+          setShowMaterialModal(false);
+          showSuccessToast("Thêm chất liệu thành công!");
+        } else {
+          showErrorToast("Thêm chất liệu thất bại: " + response.data.message);
+        }
+      })
+      .catch((error) => {
+        showErrorToast("Lỗi khi thêm chất liệu!");
+      });
+  };
+
+  const handleEditMaterial = () => {
+    if (!editMaterial || !editMaterial.materialID || !editMaterial.material_name) {
+      showErrorToast("Vui lòng nhập đầy đủ thông tin chất liệu!");
+      return;
+    }
+
+    axios
+      .put("http://localhost:4000/materials", {
+        materialID: editMaterial.materialID,
+        material_name: editMaterial.material_name,
+      })
+      .then((response) => {
+        if (response.data.success) {
+          setMaterials((prev) =>
+            prev.map((mat) =>
+              mat.materialID === editMaterial.materialID ? editMaterial : mat
+            )
+          );
+          setShowEditMaterialModal(false);
+          showSuccessToast("Cập nhật chất liệu thành công!");
+        } else {
+          showErrorToast("Cập nhật chất liệu thất bại: " + response.data.message);
+        }
+      })
+      .catch((error) => {
+        showErrorToast("Lỗi khi cập nhật chất liệu!");
+      });
+  };
+
+  const handleDeleteMaterial = (materialID: number) => {
+    if (!confirm("Bạn có chắc chắn muốn xóa chất liệu này?")) return;
+
+    axios
+      .delete("http://localhost:4000/materials", { data: { materialID } })
+      .then((response) => {
+        if (response.data.success) {
+          setMaterials((prev) =>
+            prev.filter((mat) => mat.materialID !== materialID)
+          );
+          showSuccessToast("Xóa chất liệu thành công!");
+        } else {
+          showErrorToast("Xóa chất liệu thất bại: " + response.data.message);
+        }
+      })
+      .catch((error) => {
+        showErrorToast("Lỗi khi xóa chất liệu!");
+      });
   };
 
   const handleCloseModal = () => {
@@ -360,7 +611,6 @@ export default function AdminProduct() {
     setImageFiles([]);
   };
 
-  // Hàm xử lý chọn sản phẩm
   const handleSelectProduct = (productID: string) => {
     setSelectedProducts((prev) =>
       prev.includes(productID)
@@ -369,14 +619,15 @@ export default function AdminProduct() {
     );
   };
 
-  // Hàm xử lý xóa sản phẩm
   const handleDeleteProducts = () => {
     if (selectedProducts.length === 0) {
-      alert("Vui lòng chọn ít nhất một sản phẩm để xóa!");
+      showErrorToast("Vui lòng chọn ít nhất một sản phẩm để xóa!");
       return;
     }
 
-    if (confirm(`Bạn có chắc chắn muốn xóa ${selectedProducts.length} sản phẩm?`)) {
+    if (
+      confirm(`Bạn có chắc chắn muốn xóa ${selectedProducts.length} sản phẩm?`)
+    ) {
       axios
         .delete("http://localhost:4000/products", {
           data: { productID: selectedProducts },
@@ -386,15 +637,14 @@ export default function AdminProduct() {
             setProducts((prev) =>
               prev.filter((product) => !selectedProducts.includes(product.productID!))
             );
-            setSelectedProducts([]); // Reset danh sách sản phẩm đã chọn
-            alert("Xóa sản phẩm thành công!");
+            setSelectedProducts([]);
+            showSuccessToast("Xóa sản phẩm thành công!");
           } else {
-            alert("Xóa sản phẩm thất bại: " + response.data.message);
+            showErrorToast("Xóa sản phẩm thất bại: " + response.data.message);
           }
         })
         .catch((error) => {
-          console.error("Lỗi khi xóa sản phẩm:", error);
-          alert("Lỗi khi xóa sản phẩm!");
+          showErrorToast("Lỗi khi xóa sản phẩm!");
         });
     }
   };
@@ -447,6 +697,7 @@ export default function AdminProduct() {
 
   return (
     <Layout>
+      <ToastContainer />
       <Row>
         <Col md={2} className="sidebar">
           <div className="product-count">
@@ -465,23 +716,65 @@ export default function AdminProduct() {
             {categories.map((category) => (
               <li
                 key={category.categoryID}
-                className={
+                className={`category-item ${
                   selectedCategory === category.categoryID ? "active" : ""
-                }
-                onClick={() => setSelectedCategory(category.categoryID)}
+                }`}
+                style={{ display: "flex", alignItems: "center" }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenu({
+                    type: "category",
+                    id: category.categoryID,
+                    x: e.clientX,
+                    y: e.clientY,
+                  });
+                }}
+                onTouchStart={(e) => {
+                  const touch = e.touches[0];
+                  const timer = setTimeout(() => {
+                    setContextMenu({
+                      type: "category",
+                      id: category.categoryID,
+                      x: touch.clientX,
+                      y: touch.clientY,
+                    });
+                  }, 500);
+                  e.currentTarget.addEventListener(
+                    "touchend",
+                    () => clearTimeout(timer),
+                    { once: true }
+                  );
+                }}
               >
-                {category.category_name}
+                <span
+                  className="category-name"
+                  onClick={() => setSelectedCategory(category.categoryID)}
+                >
+                  {category.category_name}
+                </span>
+                <span
+                  className="edit-icon"
+                  onClick={() => handleShowEditCategory(category)}
+                  title="Chỉnh sửa danh mục"
+                >
+                  <Image
+                    src="/images/pointer.png"
+                    alt="pointer"
+                    width={15}
+                    height={15}
+                  />
+                </span>
               </li>
             ))}
-            <Button
-              variant="outline-primary"
-              size="sm"
-              className="btn-outline-success"
-              onClick={handleShowAddCategory}
-            >
-              Thêm danh mục
-            </Button>
           </ul>
+          <Button
+            variant="outline-primary"
+            size="sm"
+            className="btn-outline-success"
+            onClick={handleShowAddCategory}
+          >
+            Thêm danh mục
+          </Button>
 
           <h5 className="mt-4">Chất liệu</h5>
           <ul className="category-list">
@@ -494,26 +787,105 @@ export default function AdminProduct() {
             {materials.map((material) => (
               <li
                 key={material.materialID}
-                className={
+                className={`material-item ${
                   selectedMaterial === material.materialID ? "active" : ""
-                }
-                onClick={() => setSelectedMaterial(material.materialID)}
+                }`}
+                style={{ display: "flex", alignItems: "center" }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setContextMenu({
+                    type: "material",
+                    id: material.materialID,
+                    x: e.clientX,
+                    y: e.clientY,
+                  });
+                }}
+                onTouchStart={(e) => {
+                  const touch = e.touches[0];
+                  const timer = setTimeout(() => {
+                    setContextMenu({
+                      type: "material",
+                      id: material.materialID,
+                      x: touch.clientX,
+                      y: touch.clientY,
+                    });
+                  }, 500);
+                  e.currentTarget.addEventListener(
+                    "touchend",
+                    () => clearTimeout(timer),
+                    { once: true }
+                  );
+                }}
               >
-                {material.material_name}
+                <span
+                  className="material-name"
+                  onClick={() => setSelectedMaterial(material.materialID)}
+                >
+                  {material.material_name}
+                </span>
+                <span
+                  className="edit-icon"
+                  onClick={() => handleShowEditMaterial(material)}
+                  title="Chỉnh sửa chất liệu"
+                >
+                  <Image
+                    src="/images/pointer.png"
+                    alt="pointer"
+                    width={15}
+                    height={15}
+                  />
+                </span>
               </li>
             ))}
-            <Button
-              variant="outline-primary"
-              size="sm"
-              className="btn-outline-success"
-              onClick={handleShowAddMaterial}
-            >
-              Thêm chất liệu
-            </Button>
           </ul>
-        </Col>
+          <Button
+            variant="outline-primary"
+            size="sm"
+            className="btn-outline-success"
+            onClick={handleShowAddMaterial}
+          >
+            Thêm chất liệu
+          </Button>
 
-        {/* Main Content */}
+          {contextMenu.type && (
+            <div
+              className="context-menu"
+              style={{ top: contextMenu.y, left: contextMenu.x }}
+              onClick={() => setContextMenu({ type: null, id: null, x: 0, y: 0 })}
+            >
+              <div
+                className="context-menu-item"
+                onClick={() => {
+                  if (contextMenu.type === "category") {
+                    const category = categories.find(
+                      (c) => c.categoryID === contextMenu.id
+                    );
+                    if (category) handleShowEditCategory(category);
+                  } else if (contextMenu.type === "material") {
+                    const material = materials.find(
+                      (m) => m.materialID === contextMenu.id
+                    );
+                    if (material) handleShowEditMaterial(material);
+                  }
+                }}
+              >
+                Sửa
+              </div>
+              <div
+                className="context-menu-item"
+                onClick={() => {
+                  if (contextMenu.type === "category" && contextMenu.id) {
+                    handleDeleteCategory(contextMenu.id);
+                  } else if (contextMenu.type === "material" && contextMenu.id) {
+                    handleDeleteMaterial(contextMenu.id);
+                  }
+                }}
+              >
+                Xóa
+              </div>
+            </div>
+          )}
+        </Col>
         <Col md={10}>
           <div id="product">
             <div id="search">
@@ -565,6 +937,7 @@ export default function AdminProduct() {
                           width={200}
                           height={190}
                           className="product-image"
+                          onClick={() => handleShowDetail(product)}
                         />
                       ) : (
                         <div className="no-image">Không có ảnh</div>
@@ -572,27 +945,25 @@ export default function AdminProduct() {
                       <h6>{product.product_name}</h6>
                       <p>{product.style}</p>
                       <div className="check">
-                        
-                      <Button
-                        variant="transparent"
-                        size="sm"
-                        onClick={() => handleShowDetail(product)}
-                      >
-                        <Image
-                          src="/images/edit.png"
-                          alt="edit"
-                          width={20}
-                          height={20}
+                        <Button
+                          variant="transparent"
+                          size="sm"
+                          onClick={() => handleShowDetail(product)}
+                        >
+                          <Image
+                            src="/images/edit.png"
+                            alt="edit"
+                            width={20}
+                            height={20}
+                          />
+                        </Button>
+                        <Form.Check
+                          type="checkbox"
+                          className="product-checkbox"
+                          checked={selectedProducts.includes(product.productID!)}
+                          onChange={() => handleSelectProduct(product.productID!)}
                         />
-                      </Button>
-                      <Form.Check
-                        type="checkbox"
-                        className="product-checkbox"
-                        checked={selectedProducts.includes(product.productID!)}
-                        onChange={() => handleSelectProduct(product.productID!)}
-                      />
                       </div>
-                      
                     </div>
                   );
                 })
@@ -604,11 +975,9 @@ export default function AdminProduct() {
             </div>
 
             <div className="totalPages">
-           
               {totalPages > 1 && (
                 <div className="d-flex justify-content-center mt-2">
-                  
-                  <Pagination>
+                  <Pagination className="custom-pagination">
                     <Pagination.Prev
                       onClick={() =>
                         setCurrentPage((prev) => Math.max(prev - 1, 1))
@@ -618,9 +987,7 @@ export default function AdminProduct() {
                     {paginationItems}
                     <Pagination.Next
                       onClick={() =>
-                        setCurrentPage((prev) =>
-                          Math.min(prev + 1, totalPages)
-                        )
+                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                       }
                       disabled={currentPage === totalPages}
                     />
@@ -632,264 +999,349 @@ export default function AdminProduct() {
         </Col>
       </Row>
 
-        {/* Modal for Product Details/Add/Edit */}
-        <Modal show={showModal} onHide={handleCloseModal} size="lg" centered>
-          <Modal.Header closeButton>
-            <Modal.Title>
-              {currentProduct ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
-            </Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Row>
-              <Col md={6}>
-                <Form>
-                  <Form.Group className="mb-2">
-                    <Form.Label>Tên sản phẩm</Form.Label>
-                    <Form.Control
-                      type="text"
-                      name="product_name"
-                      value={
-                        currentProduct?.product_name || newProduct.product_name
-                      }
-                      onChange={handleInputChange}
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-2">
-                    <Form.Label>Danh mục</Form.Label>
+      <Modal show={showModal} onHide={handleCloseModal} size="lg" centered>
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {currentProduct ? "Chỉnh sửa sản phẩm" : "Thêm sản phẩm mới"}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Row>
+            <Col md={6}>
+              <Form>
+                <Form.Group className="mb-2">
+                  <Form.Label>Tên sản phẩm</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="product_name"
+                    value={newProduct.product_name}
+                    onChange={handleInputChange}
+                    placeholder="Nhập tên sản phẩm"
+                  />
+                </Form.Group>
+                <Form.Group className="mb-2">
+                  <Form.Label>Danh mục</Form.Label>
+                  <Form.Select
+                    name="categoryID"
+                    value={newProduct.categoryID}
+                    onChange={handleInputChange}
+                  >
+                    {categories.map((category) => (
+                      <option
+                        key={category.categoryID}
+                        value={category.categoryID}
+                      >
+                        {category.category_name}
+                      </option>
+                    ))}
+                  </Form.Select>
+                </Form.Group>
+                <Form.Group className="mb-2">
+                  <Form.Label>Kiểu dáng</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="style"
+                    value={newProduct.style}
+                    onChange={handleInputChange}
+                    placeholder="Nhập kiểu dáng"
+                  />
+                </Form.Group>
+                <Form.Group className="mb-2">
+                  <Form.Label>Số lượng</Form.Label>
+                  <Form.Control
+                    type="number"
+                    name="stock"
+                    value={newProduct.stock}
+                    onChange={handleInputChange}
+                    placeholder="Nhập số lượng"
+                    min="0"
+                  />
+                </Form.Group>
+                <Form.Group className="mb-2">
+                  <Form.Label>Mô tả</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    name="description"
+                    rows={3}
+                    value={newProduct.description}
+                    onChange={handleInputChange}
+                    placeholder="Nhập mô tả sản phẩm"
+                  />
+                </Form.Group>
+              </Form>
+            </Col>
+            <Col md={6}>
+              <h6>Chất liệu</h6>
+              {newProduct.materials.map((mat, index) => (
+                <Row key={index} className="mb-2">
+                  <Col md={5}>
                     <Form.Select
-                      name="categoryID"
-                      value={newProduct.categoryID}
-                      onChange={handleInputChange}
-                      disabled={selectedCategory !== null}
+                      value={mat.materialID}
+                      onChange={(e) =>
+                        handleMaterialChange(index, "materialID", e.target.value)
+                      }
                     >
-                      {categories.map((category) => (
+                      {materials.map((material) => (
                         <option
-                          key={category.categoryID}
-                          value={category.categoryID}
+                          key={material.materialID}
+                          value={material.materialID}
                         >
-                          {category.category_name}
+                          {material.material_name}
                         </option>
                       ))}
                     </Form.Select>
-                  </Form.Group>
-                  <Form.Group className="mb-2">
-                    <Form.Label>Kiểu dáng</Form.Label>
-                    <Form.Control
-                      type="text"
-                      name="style"
-                      value={currentProduct?.style || newProduct.style}
-                      onChange={handleInputChange}
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-2">
-                    <Form.Label>Số lượng</Form.Label>
+                  </Col>
+                  <Col md={5}>
                     <Form.Control
                       type="number"
-                      name="stock"
-                      value={currentProduct?.stock || newProduct.stock}
-                      onChange={handleInputChange}
-                    />
-                  </Form.Group>
-                  <Form.Group className="mb-2">
-                    <Form.Label>Mô tả</Form.Label>
-                    <Form.Control
-                      as="textarea"
-                      name="description"
-                      rows={3}
-                      value={
-                        currentProduct?.description || newProduct.description
+                      value={mat.price || 0}
+                      onChange={(e) =>
+                        handleMaterialChange(index, "price", e.target.value)
                       }
-                      onChange={handleInputChange}
+                      placeholder="Nhập giá (VND)"
                     />
-                  </Form.Group>
-                </Form>
-              </Col>
-              <Col md={6}>
-                <h6>Chất liệu</h6>
-                {newProduct.materials.map((mat, index) => (
-                  <Row key={index} className="mb-2">
-                    <Col md={5}>
-                      <Form.Select
-                        value={mat.materialID}
-                        onChange={(e) =>
-                          handleMaterialChange(index, "materialID", e.target.value)
-                        }
-                      >
-                        {materials.map((material) => (
-                          <option
-                            key={material.materialID}
-                            value={material.materialID}
-                          >
-                            {material.material_name}
-                          </option>
-                        ))}
-                      </Form.Select>
-                    </Col>
-                    <Col md={5}>
-                      <Form.Control
-                        type="number"
-                        value={mat.price}
-                        onChange={(e) =>
-                          handleMaterialChange(index, "price", e.target.value)
-                        }
+                    <small>{mat.price ? formatPrice(mat.price) : "0 ₫"}</small>
+                  </Col>
+                  <Col md={2}>
+                    <Button
+                      variant="transparent"
+                      size="sm"
+                      onClick={() => handleRemoveMaterial(index)}
+                    >
+                      ❌️
+                    </Button>
+                  </Col>
+                </Row>
+              ))}
+              <Button
+                variant="outline-primary"
+                size="sm"
+                onClick={handleAddMaterial}
+              >
+                Thêm chất liệu
+              </Button>
+
+              <Form.Group className="mt-3">
+                <Form.Label>Ảnh sản phẩm</Form.Label>
+                <div className="image-list">
+                  {newProduct.images.map((image, index) => (
+                    <div key={index} className="image-item">
+                      <Image
+                        src={image.imageURL}
+                        alt={`Ảnh ${index + 1}`}
+                        width={80}
+                        height={80}
+                        className="product-image"
                       />
-                    </Col>
-                    <Col md={2}>
                       <Button
                         variant="transparent"
                         size="sm"
-                        onClick={() => handleRemoveMaterial(index)}
+                        onClick={() => handleRemoveImage(index)}
                       >
                         ❌️
                       </Button>
-                    </Col>
-                  </Row>
-                ))}
-                <Button
-                  variant="outline-primary"
-                  size="sm"
-                  onClick={handleAddMaterial}
-                >
-                  Thêm chất liệu
-                </Button>
-
-                <Form.Group className="mt-3">
-                  <Form.Label>Ảnh sản phẩm</Form.Label>
-                  <div className="image-list">
-                    {newProduct.images.map((image, index) => (
+                      <Form.Check
+                        type="radio"
+                        label="Ảnh chính"
+                        name="mainImage"
+                        checked={index === mainImageIndex}
+                        onChange={() => setMainImageIndex(index)}
+                      />
+                    </div>
+                  ))}
+                </div>
+                <Form.Control
+                  type="file"
+                  multiple
+                  onChange={handleImageChange}
+                  accept="image/*"
+                />
+                {imageFiles.length > 0 && (
+                  <div className="image-preview">
+                    {imageFiles.map((file, index) => (
                       <div key={index} className="image-item">
-                        <Image
-                          src={image.imageURL}
-                          alt={`Ảnh ${index + 1}`}
+                        <img
+                          src={URL.createObjectURL(file)}
+                          alt={file.name}
                           width={80}
                           height={80}
-                          className="product-image"
                         />
-                        <Button
-                          variant="transparent"
-                          size="sm"
-                          onClick={() => handleRemoveImage(index)}
-                        >
-                          ❌️
-                        </Button>
                         <Form.Check
                           type="radio"
                           label="Ảnh chính"
                           name="mainImage"
-                          checked={index === mainImageIndex}
+                          checked={mainImageIndex === index}
                           onChange={() => setMainImageIndex(index)}
                         />
                       </div>
                     ))}
                   </div>
-                  <Form.Control
-                    type="file"
-                    multiple
-                    onChange={handleImageChange}
-                    accept="image/*"
-                  />
-                  {imageFiles.length > 0 && (
-                    <div className="image-preview">
-                      {imageFiles.map((file, index) => (
-                        <div key={index} className="image-item">
-                          <img
-                            src={URL.createObjectURL(file)}
-                            alt={file.name}
-                            width={80}
-                            height={80}
-                          />
-                          <Form.Check
-                            type="radio"
-                            label="Ảnh chính"
-                            name="mainImage"
-                            checked={mainImageIndex === index}
-                            onChange={() => setMainImageIndex(index)}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Form.Group>
-              </Col>
-            </Row>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={handleCloseModal}>
-              Đóng
-            </Button>
-            {currentProduct ? (
-              <Button variant="primary" onClick={handleUpdateProduct}>
-                Cập nhật sản phẩm
-              </Button>
-            ) : (
-              <Button variant="success" onClick={handleAddProduct}>
-                Thêm sản phẩm
-              </Button>
-            )}
-          </Modal.Footer>
-        </Modal>
-
-        {/* Modal for Adding Category */}
-        <Modal show={showCategoryModal} onHide={() => setShowCategoryModal(false)} centered>
-          <Modal.Header closeButton>
-            <Modal.Title>Thêm danh mục mới</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Form>
-              <Form.Group className="mb-2">
-                <Form.Label>Tên danh mục</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={newCategory.category_name}
-                  onChange={(e) =>
-                    setNewCategory({ category_name: e.target.value })
-                  }
-                />
+                )}
               </Form.Group>
-            </Form>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowCategoryModal(false)}>
-              Đóng
+            </Col>
+          </Row>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseModal}>
+            Đóng
+          </Button>
+          {currentProduct ? (
+            <Button variant="primary" onClick={handleUpdateProduct}>
+              Cập nhật sản phẩm
             </Button>
-            <Button variant="success" onClick={handleAddCategory}>
-              Thêm danh mục
+          ) : (
+            <Button variant="success" onClick={handleAddProduct}>
+              Thêm sản phẩm
             </Button>
-          </Modal.Footer>
-        </Modal>
+          )}
+        </Modal.Footer>
+      </Modal>
 
-        {/* Modal for Adding Material */}
-        <Modal show={showMaterialModal} onHide={() => setShowMaterialModal(false)} centered>
-          <Modal.Header closeButton>
-            <Modal.Title>Thêm chất liệu mới</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Form>
-              <Form.Group className="mb-2">
-                <Form.Label>Tên chất liệu</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={newMaterial.material_name}
-                  onChange={(e) =>
-                    setNewMaterial((prev) => ({
-                      ...prev,
-                      material_name: e.target.value,
-                    }))
-                  }
-                />
-              </Form.Group>
-            </Form>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={() => setShowMaterialModal(false)}>
-              Đóng
-            </Button>
-            <Button variant="success" onClick={handleAddNewMaterial}>
-              Thêm chất liệu
-            </Button>
-          </Modal.Footer>
-        </Modal>
+      <Modal
+        show={showCategoryModal}
+        onHide={() => setShowCategoryModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Thêm danh mục mới</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-2">
+              <Form.Label>Tên danh mục</Form.Label>
+              <Form.Control
+                type="text"
+                value={newCategory.category_name}
+                onChange={(e) =>
+                  setNewCategory({ category_name: e.target.value })
+                }
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowCategoryModal(false)}
+          >
+            Đóng
+          </Button>
+          <Button variant="success" onClick={handleAddCategory}>
+            Thêm danh mục
+          </Button>
+        </Modal.Footer>
+      </Modal>
 
+      <Modal
+        show={showEditCategoryModal}
+        onHide={() => setShowEditCategoryModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Chỉnh sửa danh mục</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-2">
+              <Form.Label>Tên danh mục</Form.Label>
+              <Form.Control
+                type="text"
+                value={editCategory?.category_name || ""}
+                onChange={(e) =>
+                  setEditCategory((prev) => ({
+                    ...prev!,
+                    category_name: e.target.value,
+                  }))
+                }
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowEditCategoryModal(false)}
+          >
+            Đóng
+          </Button>
+          <Button variant="primary" onClick={handleEditCategory}>
+            Cập nhật danh mục
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        show={showMaterialModal}
+        onHide={() => setShowMaterialModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Thêm chất liệu mới</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-2">
+              <Form.Label>Tên chất liệu</Form.Label>
+              <Form.Control
+                type="text"
+                value={newMaterial.material_name}
+                onChange={(e) =>
+                  setNewMaterial({ material_name: e.target.value })
+                }
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowMaterialModal(false)}
+          >
+            Đóng
+          </Button>
+          <Button variant="success" onClick={handleAddNewMaterial}>
+            Thêm chất liệu
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      <Modal
+        show={showEditMaterialModal}
+        onHide={() => setShowEditMaterialModal(false)}
+        centered
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Chỉnh sửa chất liệu</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-2">
+              <Form.Label>Tên chất liệu</Form.Label>
+              <Form.Control
+                type="text"
+                value={editMaterial?.material_name || ""}
+                onChange={(e) =>
+                  setEditMaterial((prev) => ({
+                    ...prev!,
+                    material_name: e.target.value,
+                  }))
+                }
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button
+            variant="secondary"
+            onClick={() => setShowEditMaterialModal(false)}
+          >
+            Đóng
+          </Button>
+          <Button variant="primary" onClick={handleEditMaterial}>
+            Cập nhật chất liệu
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Layout>
   );
 }

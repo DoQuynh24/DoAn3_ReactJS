@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../components/page";
 import axios from "axios";
-import { FaSearch, FaChevronDown, FaChevronUp, FaStickyNote, FaCrown, FaGem, FaSortUp, FaSortDown } from "react-icons/fa";
+import { FaSearch, FaChevronDown, FaChevronUp, FaCrown, FaGem, FaSortUp, FaSortDown } from "react-icons/fa";
 import "./styleUser.css";
 import "bootstrap/dist/css/bootstrap.min.css";
 
@@ -12,8 +12,6 @@ interface User {
   full_name: string;
   email?: string;
   created_at: string;
-  notes?: string;
-  tags?: string[];
 }
 
 interface Invoice {
@@ -37,14 +35,12 @@ export default function AdminUser() {
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [searchSuggestions, setSearchSuggestions] = useState<SearchSuggestion[]>([]);
   const [filterStatus, setFilterStatus] = useState<string>("All");
-  const [filterPurchaseCount, setFilterPurchaseCount] = useState<string>("All");
+  const [filterPurchaseCount, setFilterStatusPurchaseCount] = useState<string>("All");
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [usersPerPage] = useState<number>(10);
   const [expandedUser, setExpandedUser] = useState<string | null>(null);
-  const [notes, setNotes] = useState<{ [key: string]: string }>({});
-  const [tags, setTags] = useState<{ [key: string]: string[] }>({});
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: string } | null>(null);
 
   useEffect(() => {
@@ -68,20 +64,9 @@ export default function AdminUser() {
       const customerIds = new Set(invoiceData.map((invoice: Invoice) => invoice.perID));
       const customers = userData.filter((user: User) => customerIds.has(user.perID));
 
-      const initialNotes = customers.reduce((acc: { [key: string]: string }, user: User) => {
-        acc[user.perID] = user.notes || "";
-        return acc;
-      }, {});
-      const initialTags = customers.reduce((acc: { [key: string]: string[] }, user: User) => {
-        acc[user.perID] = user.tags || [];
-        return acc;
-      }, {});
-
       setUsers(customers);
       setFilteredUsers(customers);
       setInvoices(invoiceData);
-      setNotes(initialNotes);
-      setTags(initialTags);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Đã xảy ra lỗi khi tải dữ liệu");
     } finally {
@@ -127,7 +112,7 @@ export default function AdminUser() {
 
   const handleFilterPurchaseCount = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
-    setFilterPurchaseCount(value);
+    setFilterStatusPurchaseCount(value); // Sửa lỗi: dùng setFilterStatusPurchaseCount thay vì setFilterPurchaseCount
     applyFilters(searchTerm, filterStatus, value);
   };
 
@@ -148,10 +133,10 @@ export default function AdminUser() {
         const userInvoices = invoices.filter((inv) => inv.perID === user.perID);
         const totalSpent = userInvoices.reduce((sum, inv) => sum + (inv.totalPrice || 0), 0);
         const purchaseCount = userInvoices.length;
-        if (status === "Diamond") return totalSpent >= 50000000 || purchaseCount >= 20;
-        if (status === "Gold") return (totalSpent >= 20000000 && totalSpent < 50000000) || (purchaseCount >= 10 && purchaseCount < 20);
-        if (status === "Loyal") return (totalSpent >= 5000000 && totalSpent < 20000000) || (purchaseCount >= 3 && purchaseCount < 10);
-        if (status === "Normal") return totalSpent < 5000000 || purchaseCount < 3;
+        if (status === "Kim cương") return totalSpent >= 50000000 || purchaseCount >= 20;
+        if (status === "Vàng") return (totalSpent >= 20000000 && totalSpent < 50000000) || (purchaseCount >= 10 && purchaseCount < 20);
+        if (status === "Bạc") return (totalSpent >= 5000000 && totalSpent < 20000000) || (purchaseCount >= 3 && purchaseCount < 10);
+        if (status === "Đồng") return totalSpent < 5000000 || purchaseCount < 3;
         return true;
       });
     }
@@ -203,8 +188,8 @@ export default function AdminUser() {
     const purchaseCount = userInvoices.length;
     if (totalSpent >= 50000000 || purchaseCount >= 20) return "Kim cương";
     if ((totalSpent >= 20000000 && totalSpent < 50000000) || (purchaseCount >= 10 && purchaseCount < 20)) return "Vàng";
-    if ((totalSpent >= 5000000 && totalSpent < 20000000) || (purchaseCount >= 3 && purchaseCount < 10)) return "Trung thành";
-    return "Bình thường";
+    if ((totalSpent >= 5000000 && totalSpent < 20000000) || (purchaseCount >= 3 && purchaseCount < 10)) return "Bạc";
+    return "Đồng";
   };
 
   const getLastProduct = (user: User): string => {
@@ -232,7 +217,6 @@ export default function AdminUser() {
   };
 
   const indexOfFirstUser = (currentPage - 1) * usersPerPage;
-  
   const indexOfLastUser = currentPage * usersPerPage;
   const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
   const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
@@ -280,10 +264,10 @@ export default function AdminUser() {
               onChange={handleFilterStatus}
             >
               <option value="All">Tất cả trạng thái</option>
-              <option value="Diamond">VIP Kim cương</option>
-              <option value="Gold">VIP Vàng</option>
-              <option value="Loyal">Trung thành</option>
-              <option value="Normal">Bình thường</option>
+              <option value="Kim cương">VIP Kim cương</option>
+              <option value="Vàng">VIP Vàng</option>
+              <option value="Bạc">Bạc</option>
+              <option value="Đồng">Đồng</option>
             </select>
             <select
               className="select"
@@ -310,16 +294,15 @@ export default function AdminUser() {
                   <div className="column sortable" onClick={() => handleSort("full_name")}>
                     Tên {sortConfig?.key === "full_name" && (sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />)}
                   </div>
-                 
                   <div className="column sortable" onClick={() => handleSort("purchaseCount")}>
                     Số lần mua {sortConfig?.key === "purchaseCount" && (sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />)}
                   </div>
                   <div className="column sortable" onClick={() => handleSort("lastPurchase")}>
                     Lần mua cuối {sortConfig?.key === "lastPurchase" && (sortConfig.direction === "asc" ? <FaSortUp /> : <FaSortDown />)}
                   </div>
-                  <div className="column">Sản phẩm gần nhất</div>
-                  <div className="column">Trạng thái</div>
-                  <div className="column"></div>
+                  <div className="column-user">Sản phẩm gần nhất</div>
+                  <div className="column-user">Trạng thái</div>
+                  <div className="column-user"></div>
                 </div>
                 {currentUsers.map((user, index) => {
                   const userInvoices = invoices.filter((inv) => inv.perID === user.perID);
@@ -334,19 +317,19 @@ export default function AdminUser() {
                   return (
                     <React.Fragment key={user.perID}>
                       <div className="table-row" onClick={() => toggleExpand(user.perID)}>
-                        <div className="column">{indexOfFirstUser + index + 1}</div>
-                        <div className="column">{user.full_name}</div>
-                        <div className="column">{purchaseCount}</div>
-                        <div className="column">{lastPurchase ? formatDate(lastPurchase) : "N/A"}</div>
-                        <div className="column">{lastProduct}</div>
-                        <div className="column">
-                          <span className={`status-badge ${status.toLowerCase().replace(" ", "-")}`}>
+                        <div className="column-user">{indexOfFirstUser + index + 1}</div>
+                        <div className="column-user">{user.full_name}</div>
+                        <div className="column-user">{purchaseCount}</div>
+                        <div className="column-user">{lastPurchase ? formatDate(lastPurchase) : "N/A"}</div>
+                        <div className="column-user">{lastProduct}</div>
+                        <div className="column-user">
+                          <span className={`status-badge-user ${status.toLowerCase().replace(" ", "-")}`}>
                             {status === "Kim cương" && <FaGem className="gem-icon" />}
                             {status === "Kim cương" || status === "Vàng" ? <FaCrown className="crown-icon" /> : null}
                             {status}
                           </span>
                         </div>
-                        <div className="column">
+                        <div className="column-user">
                           {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
                         </div>
                       </div>
@@ -366,7 +349,6 @@ export default function AdminUser() {
                             ) : (
                               <p>Chưa có đơn hàng nào</p>
                             )}
-                            
                             {(status === "Kim cương" || status === "Vàng") && (
                               <div className="offer-container">
                                 <button
